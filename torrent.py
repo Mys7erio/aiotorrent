@@ -126,8 +126,8 @@ class Torrent:
 
 
 	async def download(self, piece=1):
-		# sleep for 3 sec to recieve pending messages
-		await asyncio.sleep(3)
+		# # sleep for 3 sec to recieve pending messages
+		# await asyncio.sleep(3)
 		torrent_size = self.torrent_info['size']
 		piece_size = self.torrent_info['piece_len']
 		piece_hashmap = self.torrent_info['pieces']

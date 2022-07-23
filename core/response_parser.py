@@ -3,9 +3,8 @@ from struct import error as UnpackError
 
 
 class PeerResponseParser:
-	def __init__(self, response, ParentClass=None):
+	def __init__(self, response):
 		self.response = response
-		self.ParentClass = ParentClass
 		
 		self.messages = {
 		# self created index. Does not necessarily follow bittorrent protocol specification
@@ -15,17 +14,19 @@ class PeerResponseParser:
 			5: self.parse_bitfield,
 			7: self.parse_piece,
 			19: self.parse_handshake,
+			None: self.parse_keep_alive
 		}
+		self.artifacts = dict()
 
 
-	async def parse(self, debug=False):
-		self.debug = debug
+	def parse(self, _debug=False):
+		self._debug = _debug
 
 		while self.response:
 			try:
 				# if first byte of response is 19 bytes, it's a handshake
 				if self.response[0] == 19:
-					await self.parse_handshake()
+					self.parse_handshake()
 					continue #	issue #1
 
 				# message len and id need to be class wide accessible because message len
@@ -34,87 +35,86 @@ class PeerResponseParser:
 				self.message_id = unpack('>B', self.response[4:5])[0] if self.message_len != 0 else None
 					
 				# keep-alive messages have length 0 and no message_id
-				if self.message_len == 0 and not self.message_id: await self.parse_keep_alive()
+				if self.message_len == 0 and not self.message_id: self.parse_keep_alive()
 
 				# if msg id not in message index, clear response and close connection
 				if self.message_id not in self.messages:
 					ic("Weird:", self.message_id, self.message_len, self.response)
 					self.response = bytes()
-					await self.ParentClass.disconnect()
+					breakpoint()
 
 				# finally parse the blob of response
-				if debug: ic(self.message_len, self.message_id, self.response)
-				await self.messages[self.message_id]()
+				if _debug: ic(self.message_len, self.message_id, self.response)
+				self.messages[self.message_id]()
 
 			except Exception as E:
 				print(E)
 				breakpoint()
 
+			finally:
+				return self.artifacts
+
 		
-	async def parse_keep_alive(self):
+	def parse_keep_alive(self):
 		# keep-alive
 		message = self.response[:4]
-		print(f'Keep-Alive from {self.ParentClass}')
 		self.response = self.response[4:]
 		
 	
-	async def parse_choke(self):
+	def parse_choke(self):
 		# client got choked by peer
 		message = self.response[:5]
 		self.response = self.response[5:]
-		await self.ParentClass.disconnect(f"Choked client!")
+		self.artifacts.update({'choke': True})
 		
 		
-	async def parse_unchoke(self):
+	def parse_unchoke(self):
 		message = self.response[:5]
-		self.ParentClass.choking_me = False
-		self.ParentClass.am_interested = True
-		print(f"Unchoke from {self.ParentClass}")
 		self.response = self.response[5:]
+		self.artifacts.update({'unchoke': True})
 		
 		
-	async def parse_have(self):
+	def parse_have(self):
 		message = self.response[:9]
-		# we just need the piece index so we can ignore the first 5 bytes of message
-		# unpack returns tuple. Selecting first element.
+		# We just need the piece index so we can ignore the first 5 bytes of message.
+		# Unpack returns tuple , selecting first element.
 		piece_index = unpack('>I', message[5:])[0]
-		print(f"Got Have from {self.ParentClass} for piece index {piece_index}")
-		self.ParentClass.pieces[piece_index] = True
 		self.response = self.response[9:]
+		self.artifacts.update({'have': {piece_index: True}})
 		
 	
-	@staticmethod
-	def parse_piece(response):
-		message_len = unpack('>I', response[:4])[0]
-		message_id = unpack('>B', response[4:5])[0]
-		index, offset = unpack('>II', response[5: 13])
-		payload = response[13:]
-		return (index, offset, payload)
+	def parse_piece(self):
+		# Returns index, offset and block except when there's
+		# an unpack error. In the second case, It raises a TypeError
+		block_len = self.message_len - 9
+		total = block_len + 13
+		try:
+			index, offset = unpack('>II', self.response[5: 13])
+			block = self.response[13:]
+			self.artifacts['piece'] = (index, offset, block)
+		except UnpackError:
+			raise TypeError("Parser: Failed to extract piece")
+		finally:
+			self.response = self.response[total:]
 		
 		
-	async def parse_bitfield(self):
+	def parse_bitfield(self):
 		# Since bitfield len is 1+X. X is length of bitfield
 		self.message_len -= 1
 		total = self.message_len + self.message_id
 		message = self.response[5:total]
-		self.ParentClass.handle_bitfield(message)
-		print(f"Bitfield from {self.ParentClass}")
 		self.response = self.response[total:]
+		self.artifacts({'bitfield': message})
 		
 		
-	async def parse_handshake(self):
+	def parse_handshake(self):
 		# Total is 68 bytes
 		total = 68
 		message = self.response[:total]
-		await self.ParentClass.handle_handshake(message)
-		print(f"Handshake from {self.ParentClass}")
 		self.response = self.response[total:]
+		self.artifacts.update({'handshake': message})
 
 		
 
 if __name__ == "__main__":
-	import asyncio
-	async def aioclosure():
-		test = bytes()
-		await PeerResponseParser.parse(object(), test)
-	asyncio.run(aioclosure())
+	...

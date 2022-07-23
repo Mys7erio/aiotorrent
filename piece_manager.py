@@ -27,9 +27,9 @@ class PieceManager:
 	async def get_all_pieces(self):
 		piece1 = await Piece(0, self.total_blocks, self.active_peers).get_piece()
 		piece_hash = hashlib.sha1(piece1).digest()
-		breakpoint()
+
 		if piece_hash == self.piece_hashmap[0]:
-			self.write_piece_to_disk(piece, 'testfile')
+			self.write_piece_to_disk(piece1, 'utils/checkfile2.data')
 			print(f"Wrote piece 0 to disk")
 		else:
 			print(f"Piece Hash Does Not Match")

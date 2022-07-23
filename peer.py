@@ -2,7 +2,7 @@ import asyncio
 from struct import pack, unpack
 from bitstring import BitArray
 
-from core.response_handler import PeerResponseHandler
+from core.response_handler import PeerResponseHandler as Handler
 from core.response_parser import PeerResponseParser as Parser
 from core.message_generator import MessageGenerator as Generator
 
@@ -11,10 +11,6 @@ class Peer:
 	def __init__(self, address, torrent_info):
 		self.address = address
 		self.torrent_info = torrent_info
-
-		handler = PeerResponseHandler(self)
-		self.handle_bitfield = handler.bitfield
-		self.handle_handshake = handler.handshake
 
 		self.active = False
 
@@ -65,7 +61,9 @@ class Peer:
 			ih = self.torrent_info['info_hash']
 			handshake_message = Generator.gen_handshake(ih)
 			response = await self.send_message(handshake_message)
-			await Parser(response, ParentClass=self).parse()
+			artifacts = Parser(response).parse()
+			await Handler(artifacts, Peer=self).handle()
+
 
 
 	async def intrested(self):
@@ -73,7 +71,8 @@ class Peer:
 		if self.active and self.has_handshaked:# and not self.choking_me:
 			interested_message = Generator.gen_interested()
 			response = await self.send_message(interested_message)
-			await Parser(response, self).parse()
+			artifacts = Parser(response).parse()
+			await Handler(artifacts, Peer=self).handle()
 
 
 	async def send_message(self, message, _debug=False):

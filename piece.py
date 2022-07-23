@@ -1,7 +1,7 @@
-import queue
 import asyncio
 
 from core.response_parser import PeerResponseParser as Parser
+from core.response_handler import PeerResponseHandler as Handler
 from core.message_generator import MessageGenerator as Generator
 
 
@@ -15,7 +15,6 @@ class Block:
 		self.data = data
 		self.num = int(offset / BLOCK_SIZE)
 
-		# Sometimes peers send previously unfinished responses (handshake/bitfield)
 		if self.data: print(f"Got {self}")
 
 
@@ -23,92 +22,102 @@ class Block:
 		return (f"Block #{self.piece_num}-{self.num}")
 
 
-
 class Piece:
 	def __init__(self, piece_num, total_blocks, active_peers):
-		self.data = bytes()
+		"""
+		piece_num: int
+			Zero based piece index to be fetched from peers
+
+		total_blocks: int
+			total number of blocks in a single piece
+
+		active_peers: asyncio.Queue
+			Peers which are active and have completed handshake
+		"""
 		self.blocks = dict()
 		self.piece_num = piece_num
 		self.active_peers = active_peers
 		self.total_blocks = total_blocks
+		self.block_offsets = set()
+
+		# Add block offsets to block_offsets set
+		for block_num in range(self.total_blocks):
+			self.block_offsets.add(
+				(block_num * BLOCK_SIZE)
+			)
 		
 
 	def __repr__(self):
 		return (f"Piece #{self.piece_num}")
 
 
-	@staticmethod
-	def gen_block_offsets(total_blocks):
-		block_offsets = list()
-		for piece_num in range(total_blocks):
-			offset = piece_num * BLOCK_SIZE
-			if not offset in self.blocks:
-				block_offsets.append(block)
-		return block_offsets
-
-
-	async def get_block(self, piece_num, block_offset):
-		index = self.piece_num
-		offset = block_offset
-		data = bytes()
+	async def get_block(self, block_offset):
+		"""
+		This function fetches a block from a peer. It returns
+		either an Block object or a None Object.
+	
+		block_offset: int
+			Zero based block offset which should be a multiple of
+			BLOCK_SIZE. If there are 10 blocks in piece #0, block
+			offset for block num 8 would be (8 * BLOCK_SIZE) = 131702
+		"""
+		piece_num = self.piece_num
 		block_num = int(block_offset / BLOCK_SIZE)
+		Peer = await self.active_peers.get()
 
-		piece_info = {
-			'index': index,
-			'offset': offset,
-			'block_len': BLOCK_SIZE
-		}
-
-		peer = await self.active_peers.get()
-		print(f"Requesting {piece_num=} {block_num=} from {peer}")
+		print(f"Requesting {self.piece_num=} {block_num=} from {Peer}")
+		request_message = Generator.gen_request(self.piece_num, block_offset)
+		response = await Peer.send_message(request_message)
+		
+		# If empty response, add block_offset back to unavailable blocks
+		if not response:
+			self.block_offsets.add(block_offset)
+			print(f"Empty Piece Response from {Peer}")
+			return None
 
 		try:
-			request_message = Generator.gen_request(piece_num, block_offset)
-			response = await peer.send_message(request_message)
-			if response:
-				index, offset, data = Parser.parse_piece(response)
-				if index > self.total_blocks: breakpoint()
-		except TypeError:
-			breakpoint()
-		finally:
+			artifacts = Parser(response).parse()
+			response = await Handler(artifacts, Peer=Peer).handle()
+			index, offset, data = response
 			block = Block(index, offset, data)
-			await self.active_peers.put(peer)
+			return block # Return here does not prevent execution of finally block
+		except TypeError as E:
+			print(E, "PIECE:")
+			self.block_offsets.add(block_offset)
+			return None
+		finally:
+			await self.active_peers.put(Peer)
 			self.active_peers.task_done()
 
-		return block
 
 
 	async def get_piece(self):
 		task_list = list()
-		block_offsets = list()
 
-		# Collect all block offsets in a set
-		block_offsets = [(block_num * BLOCK_SIZE) for block_num in range(0, self.total_blocks)]
-		while block_offsets:
-			while not self.active_peers.empty() and block_offsets:
-				offset = block_offsets.pop(0)
+		while self.block_offsets:
+			while not self.active_peers.empty() and self.block_offsets:
+				offset = self.block_offsets.pop()
 				task_list.append(
 					asyncio.create_task(
-						self.get_block(self.piece_num, offset)
+						self.get_block(offset)
 					)
 				)
 			# Execute all tasks in parallel
 			results = await asyncio.gather(*task_list)
 
+			# Remove NoneType objects from the list
+			results = [result for result in results if result]
+
 			for block in results:
-				# In case of empty or invalid block, add offset back to queue
-				if not block.data: # or block.num > self.total_blocks:
-					if not block.offset in block_offsets:
-						block_offsets.append(block.offset)
-				else:
-					# In case of successful retrieval of block, add it to blocks
+				# In case of successful retrieval of block, add block to
+				# self.blocks and remove block_offset from self.block_offsets
+				if block.data:
 					self.blocks.update({block.num: block})
-					if block.offset in block_offsets:
-						block_offsets.remove(block.offset)
+					self.block_offsets.discard(block.offset)
 
-		breakpoint()
 		# Concatenate all the block values
+		data = bytes()
 		for block_num in range(self.total_blocks):
-			self.data += self.blocks[block_num].data
+			data += self.blocks[block_num].data
 
-		return self.data
+		return data
