@@ -2,12 +2,12 @@ import asyncio
 import bencode
 import hashlib
 import platform
-from asyncio.exceptions import TimeoutError, CancelledError
 
-from core.util import chunk
-from tracker_factory import TrackerFactory
 from peer import Peer
-from piece_manager import PieceManager
+from core.util import chunk
+from core.file_utils import FileTree
+from tracker_factory import TrackerFactory
+from downloader import FilesDownloadManager
 
 
 # Asyncio throws runtime error if the platform is windows
@@ -29,21 +29,23 @@ class Torrent:
 		self.trackers = list()
 		self.peers = list()
 		self.name = data['info']['name']
+		self.files = None # This will be replaced with a file_tree object
+
 		# Check if this torrent has multiple files
 		self.has_multiple_files = True if 'files' in data['info'] else False
 
 		size = int()
 		peers = list()
 		trackers = list()
-		pieces = dict()
+		piece_hashmap = dict()
 		announce = data['announce'] if 'announce' in data else None # announce is a string
 		files = data['info']['files'] if self.has_multiple_files else self.name
 		piece_len = data['info']['piece length']
 
-		# Increase size for every file in this torrent
-		# else set size to size of the single file
+		# If torrent has multiple files, set torrent
+		# size to sum of length of all individual files
 		if self.has_multiple_files:
-			for file in files: size += file['length']
+			size = sum([file['length'] for file in files])
 		else:
 			size = data['info']['length']
 
@@ -57,19 +59,22 @@ class Torrent:
 
 		# for every 20 byte in raw_pieces -> str, map index:piece (int:str) to pieces
 		for index, piece in enumerate(chunk(raw_pieces, 20)):
-			pieces[index] = piece
+			piece_hashmap[index] = piece
 
 		self.torrent_info = {
+			'name': data['info']['name'],
 			'size': size,
-			'info_hash': info_hash,
 			'files': files,
-			'pieces': pieces,
 			'piece_len': piece_len,
+			'info_hash': info_hash,
+			'piece_hashmap': piece_hashmap,
 			'peers': peers,
 			'trackers': trackers,
 		}
 
-		# Add announce url to trackers list if it exists
+		self.files = FileTree(self.torrent_info)
+
+		# Add announce url to trackers list if announce exists
 		if announce: self.torrent_info['trackers'].append(announce)
 		
 		# Adding trackers to torrent info. Tracker is a list that contains a string
@@ -78,8 +83,8 @@ class Torrent:
 			if not tracker in self.torrent_info['trackers']:
 				self.torrent_info['trackers'].append(tracker)
 
+		ic(self.torrent_info['files'])
 		print("*"*64)
-
 
 
 	def contact_trackers(self):
@@ -106,6 +111,10 @@ class Torrent:
 		print(f"Got {len(self.torrent_info['peers'])} Peers for this torrent")
 
 
+	def show_files(self):
+		for file in self.files.files:
+			print(f"File: {file}")
+
 
 	async def init(self):
 		# Use list comprehension to create and execute peer functions in parallel
@@ -125,15 +134,10 @@ class Torrent:
 		print(f"{len(active_trackers)} trackers active")
 
 
-	async def download(self, piece=1):
-		# # sleep for 3 sec to recieve pending messages
-		# await asyncio.sleep(3)
-		torrent_size = self.torrent_info['size']
-		piece_size = self.torrent_info['piece_len']
-		piece_hashmap = self.torrent_info['pieces']
-		active_peers = [peer for peer in self.peers if peer.active]
-		pm = PieceManager(torrent_size, piece_size, piece_hashmap, active_peers)
-		await pm.get_all_pieces()
+	async def download(self, file):
+		active_peers = [peer for peer in self.peers if peer.has_handshaked]
+		dm = FilesDownloadManager(self.torrent_info, active_peers)
+		await dm.get_file(file)
 
 
 

@@ -74,7 +74,7 @@ class PeerResponseHandler:
 			message = self.artifacts['bitfield']
 			pieces = BitArray(message)
 		else:
-			num_pieces = len(self.Peer.torrent_info['pieces'])
+			num_pieces = len(self.Peer.torrent_info['piece_hashmap'])
 			pieces = BitArray(num_pieces)
 
 		# Merge have requests if available

@@ -15,6 +15,7 @@ def chunk(string, size):
 
 class PieceError(ValueError):
 	...
+	
 
 if __name__ == "__main__":
 	a = 'abcabcabcabcabcabcabcabcabcabc'

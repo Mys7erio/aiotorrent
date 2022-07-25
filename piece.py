@@ -23,7 +23,7 @@ class Block:
 
 
 class Piece:
-	def __init__(self, piece_num, total_blocks, active_peers):
+	def __init__(self, piece_num, piece_info, active_peers):
 		"""
 		piece_num: int
 			Zero based piece index to be fetched from peers
@@ -34,11 +34,20 @@ class Piece:
 		active_peers: asyncio.Queue
 			Peers which are active and have completed handshake
 		"""
+		self.data = bytes()
 		self.blocks = dict()
+		self.block_offsets = set()
 		self.piece_num = piece_num
 		self.active_peers = active_peers
-		self.total_blocks = total_blocks
-		self.block_offsets = set()
+
+		# If piece_num matches the num of total pieces then it's the last piece.
+		# If last block is smaller than BLOCK_SIZE then increment total blocks.
+		if piece_num == piece_info['total_pieces']:
+			self.total_blocks, last_block = divmod(piece_info['last_piece'], BLOCK_SIZE)
+			# last_offset = ((self.total_blocks * BLOCK_SIZE) + last_block - BLOCK_SIZE)
+			# self.block_offsets.add(last_offset)
+		else:
+			self.total_blocks = piece_info['total_blocks']
 
 		# Add block offsets to block_offsets set
 		for block_num in range(self.total_blocks):
@@ -93,7 +102,6 @@ class Piece:
 
 	async def get_piece(self):
 		task_list = list()
-
 		while self.block_offsets:
 			while not self.active_peers.empty() and self.block_offsets:
 				offset = self.block_offsets.pop()
@@ -116,8 +124,5 @@ class Piece:
 					self.block_offsets.discard(block.offset)
 
 		# Concatenate all the block values
-		data = bytes()
 		for block_num in range(self.total_blocks):
-			data += self.blocks[block_num].data
-
-		return data
+			self.data += self.blocks[block_num].data

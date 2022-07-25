@@ -20,7 +20,7 @@ class Peer:
 		self.has_bitfield = False
 
 		# create empty BitArray of length equal to total number of pieces in the torrent
-		num_pieces = len(torrent_info['pieces'])
+		num_pieces = len(torrent_info['piece_hashmap'])
 		self.pieces = BitArray(num_pieces)
 
 
