@@ -10,15 +10,13 @@ icecream.install()
 
 async def main():
 	print("*"*64)
+	
 	torrent = Torrent('utils/big-buck-bunny.torrent')
-
-	torrent.contact_trackers()
-	torrent.contact_peers()
-
-	# asyncio.run(torrent.init(), debug=True)
-	# asyncio.run(torrent.download(), debug=True)
 	await torrent.init()
-	await torrent.download()
+
+	for file in torrent.files.files:
+		await torrent.download(file)
+
 	breakpoint()
 
 

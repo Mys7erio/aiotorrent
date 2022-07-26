@@ -35,8 +35,7 @@ class MessageGenerator:
 
 
 	@staticmethod
-	def gen_request(index, offset):
+	def gen_request(index, offset, BLOCK_SIZE=(2 ** 14)):
 		mlen, mid = 13, 6
-		BLOCK_SIZE = 2 ** 14
 		message = pack(">IBIII", mlen, mid, index, offset, BLOCK_SIZE)
 		return message

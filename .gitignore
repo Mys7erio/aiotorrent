@@ -131,3 +131,6 @@ dmypy.json
 # My exclusions
 utils/
 myvenv
+*.mp4
+*.jpg
+*.srt

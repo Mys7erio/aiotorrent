@@ -20,7 +20,7 @@ class FilesDownloadManager:
 		total_pieces, last_piece = divmod(torrent_size, piece_size)
 		total_blocks, last_block = divmod(piece_size, BLOCK_SIZE)
 		
-		# increment total number of pieces if last piece exists
+		# Increment total number of pieces if last piece exists
 		if last_piece: total_pieces += 1
 		if last_block: total_blocks += 1
 
@@ -47,7 +47,7 @@ class FilesDownloadManager:
 	# 	filename = f"file-{int(time())}.data"
 	# 	filepath = f"utils/temp/{filename}"
 
-	# 	piece_nums = {piece_num for piece_num in range(0, 10)}
+	# 	piece_nums = {piece_num for piece_num in range(30, 100)}
 	# 	while piece_nums:
 	# 		piece_num = piece_nums.pop()
 	# 		piece = Piece(piece_num, self.piece_info, self.active_peers)
@@ -63,18 +63,19 @@ class FilesDownloadManager:
 
 
 	async def get_file(self, file):
-		# poster = self.file_tree.files[2] # Poster
-		piece_nums = {piece_num for piece_num in range(file.start_piece, file.end_piece + 1)}
+		piece_nums = [piece_num for piece_num in range(file.start_piece, file.end_piece + 1)]
 
 		while piece_nums:
-			piece_num = piece_nums.pop()
+			piece_num = piece_nums.pop(0)
 			piece = Piece(piece_num, self.piece_info, self.active_peers)
 			await piece.get_piece()
 			piece_hash = hashlib.sha1(piece.data).digest()
 
+			# If piece hash does not match, prepend piece num back to piece_nums.
+			# Python doesn't have a prepend function, improvised with the insert func.
 			if piece_hash != self.piece_hashmap[piece_num]:
 				print(f"Piece Hash Does Not Match for {piece}")
-				piece_nums.add(piece_num)
+				piece_nums.insert(0, piece_num)
 				continue
 
 			if file.start_piece == piece_num:

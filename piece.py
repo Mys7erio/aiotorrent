@@ -40,21 +40,21 @@ class Piece:
 		self.piece_num = piece_num
 		self.active_peers = active_peers
 
+		self._is_last_piece = False
+		self._last_offset = 0
+		self.total_blocks = piece_info['total_blocks']
+
 		# If piece_num matches the num of total pieces then it's the last piece.
-		# If last block is smaller than BLOCK_SIZE then increment total blocks.
 		if piece_num == piece_info['total_pieces']:
-			self.total_blocks, last_block = divmod(piece_info['last_piece'], BLOCK_SIZE)
-			# last_offset = ((self.total_blocks * BLOCK_SIZE) + last_block - BLOCK_SIZE)
-			# self.block_offsets.add(last_offset)
-		else:
-			self.total_blocks = piece_info['total_blocks']
+			self._is_last_piece = True
+			self.total_blocks, self._last_offset = divmod(piece_info['last_piece'], BLOCK_SIZE)
 
 		# Add block offsets to block_offsets set
 		for block_num in range(self.total_blocks):
 			self.block_offsets.add(
 				(block_num * BLOCK_SIZE)
 			)
-		
+
 
 	def __repr__(self):
 		return (f"Piece #{self.piece_num}")
@@ -76,6 +76,14 @@ class Piece:
 
 		print(f"Requesting {self.piece_num=} {block_num=} from {Peer}")
 		request_message = Generator.gen_request(self.piece_num, block_offset)
+
+		if self._is_last_piece and block_num == 7:
+			request_message = Generator.gen_request(
+				self.piece_num,
+				block_offset,
+				BLOCK_SIZE=(BLOCK_SIZE + self._last_offset)
+			)
+
 		response = await Peer.send_message(request_message)
 		
 		# If empty response, add block_offset back to unavailable blocks
@@ -91,7 +99,6 @@ class Piece:
 			block = Block(index, offset, data)
 			return block # Return here does not prevent execution of finally block
 		except TypeError as E:
-			print(E, "PIECE:")
 			self.block_offsets.add(block_offset)
 			return None
 		finally:

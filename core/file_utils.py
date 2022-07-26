@@ -29,6 +29,15 @@ class FileTree:
 		self.files = list()
 		piece_size = torrent_info['piece_len']
 
+		# If it is a single file torrent, create a dictionary in a torrent format
+		if not isinstance(torrent_info['files'], list):
+			file = {
+				'path': torrent_info['files'],
+				'length': torrent_info['size'],
+			}
+			self.files.append(File(file, counted, piece_size))
+			return
+
 		# Create file object for every file in the torrent.
 		# Increase the value of the counted var by length of each file.
 		for file in torrent_info['files']:

@@ -72,22 +72,24 @@ class Torrent:
 			'trackers': trackers,
 		}
 
-		self.files = FileTree(self.torrent_info)
-
 		# Add announce url to trackers list if announce exists
 		if announce: self.torrent_info['trackers'].append(announce)
-		
+
 		# Adding trackers to torrent info. Tracker is a list that contains a string
-		for tracker in data['announce-list']:
-			tracker = tracker[0]
-			if not tracker in self.torrent_info['trackers']:
-				self.torrent_info['trackers'].append(tracker)
+		if 'announce-list' in data:
+			for tracker in data['announce-list']:
+				tracker = tracker[0]
+				if not tracker in self.torrent_info['trackers']:
+					self.torrent_info['trackers'].append(tracker)
+
+
+		self.files = FileTree(self.torrent_info)
 
 		ic(self.torrent_info['files'])
 		print("*"*64)
 
 
-	def contact_trackers(self):
+	def _contact_trackers(self):
 		# Create tracker objects using Tracker Factory Class
 		for tracker in self.torrent_info['trackers']:
 			self.trackers.append(
@@ -97,7 +99,7 @@ class Torrent:
 
 
 
-	def contact_peers(self):
+	def _get_peers(self):
 		# Get peers address from each tracker and add them to
 		# peer list if not already there
 		for tracker in self.trackers:
@@ -117,6 +119,10 @@ class Torrent:
 
 
 	async def init(self):
+		# Contact Trackers and get peers
+		self._contact_trackers()
+		self._get_peers()
+
 		# Use list comprehension to create and execute peer functions in parallel
 		connections = [peer.connect() for peer in self.peers]
 		await asyncio.gather(*connections)
@@ -128,7 +134,7 @@ class Torrent:
 		await asyncio.gather(*interested_msgs)
 
 		# Info
-		active_peers = [peer for peer in self.peers if peer.active]
+		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		active_trackers = [tracker for tracker in self.trackers if tracker.active]
 		print(f"{len(active_peers)} peers active")
 		print(f"{len(active_trackers)} trackers active")
