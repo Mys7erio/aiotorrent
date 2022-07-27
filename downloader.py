@@ -1,9 +1,9 @@
 import asyncio
 import hashlib
-from time import time
+from pathlib import Path
 
 from piece import Piece
-from core.file_utils import FileTree
+from core.file_utils import FileTree, File
 from core.response_parser import PeerResponseParser as Parser
 from core.message_generator import MessageGenerator as Generator
 
@@ -11,10 +11,14 @@ from core.message_generator import MessageGenerator as Generator
 BLOCK_SIZE = 2 ** 14
 
 class FilesDownloadManager:
-	def __init__(self, torrent_info, active_peers):
+	def __init__(self, torrent_info: dict, active_peers: list):
 		# Extract torrent size and piece size values from torrent info
 		piece_size = torrent_info['piece_len']
 		torrent_size = torrent_info['size']
+
+		# Create a directory with the same name as torrent name to download files to
+		self.directory = torrent_info['name']
+		Path(self.directory).mkdir(exist_ok=True)
 
 		# divmod returns a tuple which is the quotient and remainder
 		total_pieces, last_piece = divmod(torrent_size, piece_size)
@@ -62,7 +66,7 @@ class FilesDownloadManager:
 	# 			piece_nums.add(piece_num)
 
 
-	async def get_file(self, file):
+	async def get_file(self, file: File):
 		piece_nums = [piece_num for piece_num in range(file.start_piece, file.end_piece + 1)]
 
 		while piece_nums:
@@ -84,14 +88,17 @@ class FilesDownloadManager:
 			if file.end_piece == piece_num:
 				piece.data = piece.data[:file.end_byte]
 
-			self.write_piece_to_disk(piece.data, file.name)
-			print(f"Wrote {piece} to file {file.name}")
-
+			self.write_piece_to_disk(piece, file)
 		print(f"File {file} downloaded")
 
 
-	def write_piece_to_disk(self, piece, filename):
-		with open(filename, 'ab') as file:
-			file.write(piece)
+	def write_piece_to_disk(self, piece: Piece, file: File):
+		# Filepath is file name prepended by directory name
+		filepath = f"{self.directory}/{file.name}"
+
+		with open(filepath, 'ab') as file:
+			file.write(piece.data)
+
+		print(f"Wrote {piece} to {file.name}")
 
 

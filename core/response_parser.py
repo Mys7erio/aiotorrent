@@ -47,10 +47,10 @@ class PeerResponseParser:
 				if _debug: ic(self.message_len, self.message_id, self.response)
 				self.messages[self.message_id]()
 
+			# In case of an unknown message id / general exception, clear the response
 			except Exception as E:
 				print(E)
-				breakpoint()
-
+				self.response = bytes()
 			finally:
 				return self.artifacts
 

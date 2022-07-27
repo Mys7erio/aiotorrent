@@ -114,7 +114,7 @@ class Torrent:
 
 
 	def show_files(self):
-		for file in self.files.files:
+		for file in self.files:
 			print(f"File: {file}")
 
 
