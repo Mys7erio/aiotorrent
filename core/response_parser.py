@@ -37,14 +37,13 @@ class PeerResponseParser:
 				# keep-alive messages have length 0 and no message_id
 				if self.message_len == 0 and not self.message_id: self.parse_keep_alive()
 
-				# if msg id not in message index, clear response and close connection
+				# if msg id not in message index, clear response
 				if self.message_id not in self.messages:
-					ic("Weird:", self.message_id, self.message_len, self.response)
+					print(f"{self.message_id=}, {self.message_len=}, {self.response}")
 					self.response = bytes()
-					breakpoint()
 
 				# finally parse the blob of response
-				if _debug: ic(self.message_len, self.message_id, self.response)
+				if _debug: print(f"{self.message_len=}, {self.message_id=}, {self.response=}")
 				self.messages[self.message_id]()
 
 			# In case of an unknown message id / general exception, clear the response

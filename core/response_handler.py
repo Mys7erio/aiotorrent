@@ -8,7 +8,7 @@ class PeerResponseHandler:
 		self.Peer = Peer
 
 	async def handle(self, _debug=False):
-		if _debug: [ic(key, len(value)) for key, value in self.artifacts.items()]
+		if _debug: [print(key, len(value)) for key, value in self.artifacts.items()]
 
 		while self.artifacts:
 			if "keep_alive" in self.artifacts: self.handle_keep_alive() 
