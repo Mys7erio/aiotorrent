@@ -1,12 +1,9 @@
 #!/usr/bin/python
 
 import asyncio
-import icecream
 
 from torrent import Torrent
 
-
-icecream.install()
 
 async def main():
 	print("*"*64)

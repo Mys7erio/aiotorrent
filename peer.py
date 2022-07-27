@@ -84,7 +84,7 @@ class Peer:
 				response = await asyncio.wait_for(self.reader.read(1024), 3)
 				response_buffer += response
 
-				if _debug: ic(self, response)
+				if _debug: print(f"{self}, {response=}")
 				if len(response) <= 0: EMPTY_RESPONSE_THRESHOLD -= 1
 				if EMPTY_RESPONSE_THRESHOLD < 0:
 					await self.disconnect(f"Empty Response Threshold Exceeded!")

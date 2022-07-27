@@ -15,11 +15,10 @@ class Block:
 		self.data = data
 		self.num = int(offset / BLOCK_SIZE)
 
-		if self.data: print(f"Got {self}")
-
 
 	def __repr__(self):
 		return (f"Block #{self.piece_num}-{self.num}")
+
 
 
 class Piece:
@@ -60,6 +59,7 @@ class Piece:
 		return (f"Piece #{self.piece_num}")
 
 
+
 	async def get_block(self, block_offset):
 		"""
 		This function fetches a block from a peer. It returns
@@ -74,7 +74,6 @@ class Piece:
 		block_num = int(block_offset / BLOCK_SIZE)
 		Peer = await self.active_peers.get()
 
-		print(f"Requesting {self.piece_num=} {block_num=} from {Peer}")
 		request_message = Generator.gen_request(self.piece_num, block_offset)
 
 		if self._is_last_piece and block_num == 7:
@@ -89,7 +88,6 @@ class Piece:
 		# If empty response, add block_offset back to unavailable blocks
 		if not response:
 			self.block_offsets.add(block_offset)
-			print(f"Empty Piece Response from {Peer}")
 			return None
 
 		try:
@@ -104,7 +102,6 @@ class Piece:
 		finally:
 			await self.active_peers.put(Peer)
 			self.active_peers.task_done()
-
 
 
 	async def get_piece(self):

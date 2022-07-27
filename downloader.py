@@ -42,28 +42,9 @@ class FilesDownloadManager:
 		self.piece_hashmap = torrent_info['piece_hashmap']
 		self.file_tree = FileTree(torrent_info)
 
-		ic(self.piece_info)
+		[print(f"{key}:{val}") for key, val in piece_info.items()]
 		self.active_peers = asyncio.Queue()
 		[self.active_peers.put_nowait(peer) for peer in active_peers]
-
-
-	# async def get_all_pieces(self):
-	# 	filename = f"file-{int(time())}.data"
-	# 	filepath = f"utils/temp/{filename}"
-
-	# 	piece_nums = {piece_num for piece_num in range(30, 100)}
-	# 	while piece_nums:
-	# 		piece_num = piece_nums.pop()
-	# 		piece = Piece(piece_num, self.piece_info, self.active_peers)
-	# 		await piece.get_piece()
-	# 		piece_hash = hashlib.sha1(piece.data).digest()
-
-	# 		if piece_hash == self.piece_hashmap[piece_num]:
-	# 			self.write_piece_to_disk(piece.data, filepath)
-	# 			print(f"Wrote {piece} to file {filepath}")
-	# 		else:
-	# 			print(f"Piece Hash Does Not Match for {piece}")
-	# 			piece_nums.add(piece_num)
 
 
 	async def get_file(self, file: File):

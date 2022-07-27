@@ -12,9 +12,6 @@ def chunk(string, size):
 		string = string[size:]
 
 
-
-class PieceError(ValueError):
-	...
 	
 
 if __name__ == "__main__":
