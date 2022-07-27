@@ -39,7 +39,7 @@ class PeerResponseParser:
 
 				# if msg id not in message index, clear response
 				if self.message_id not in self.messages:
-					print(f"{self.message_id=}, {self.message_len=}, {self.response}")
+					print(f"{self.message_id=}, {self.message_len=}, {self.response[:16]}")
 					self.response = bytes()
 
 				# finally parse the blob of response
