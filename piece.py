@@ -1,24 +1,12 @@
 import asyncio
 
+from core.block import Block
 from core.response_parser import PeerResponseParser as Parser
 from core.response_handler import PeerResponseHandler as Handler
 from core.message_generator import MessageGenerator as Generator
 
 
 BLOCK_SIZE = 2 ** 14
-
-
-class Block:
-	def __init__(self, piece_num, offset, data):
-		self.piece_num = piece_num
-		self.offset = offset
-		self.data = data
-		self.num = int(offset / BLOCK_SIZE)
-
-
-	def __repr__(self):
-		return (f"Block #{self.piece_num}-{self.num}")
-
 
 
 class Piece:
@@ -76,7 +64,8 @@ class Piece:
 
 		request_message = Generator.gen_request(self.piece_num, block_offset)
 
-		if self._is_last_piece and block_num == 7:
+		# Last block of last piece will be requested with second last block 
+		if self._is_last_piece and block_num == (self.total_blocks - 1):
 			request_message = Generator.gen_request(
 				self.piece_num,
 				block_offset,
@@ -92,11 +81,10 @@ class Piece:
 
 		try:
 			artifacts = Parser(response).parse()
-			response = await Handler(artifacts, Peer=Peer).handle()
-			index, offset, data = response
-			block = Block(index, offset, data)
+			block = await Handler(artifacts, Peer=Peer).handle()
 			return block # Return here does not prevent execution of finally block
 		except TypeError as E:
+			print(E)
 			self.block_offsets.add(block_offset)
 			return None
 		finally:
@@ -109,20 +97,17 @@ class Piece:
 		while self.block_offsets:
 			while not self.active_peers.empty() and self.block_offsets:
 				offset = self.block_offsets.pop()
-				task_list.append(
-					asyncio.create_task(
-						self.get_block(offset)
-					)
-				)
+				task_list.append(asyncio.create_task(self.get_block(offset)))
+				
 			# Execute all tasks in parallel
 			results = await asyncio.gather(*task_list)
 
 			# Remove NoneType objects from the list
 			results = [result for result in results if result]
 
+			# In case of successful retrieval of block, add block to
+			# self.blocks and remove block_offset from self.block_offsets
 			for block in results:
-				# In case of successful retrieval of block, add block to
-				# self.blocks and remove block_offset from self.block_offsets
 				if block.data:
 					self.blocks.update({block.num: block})
 					self.block_offsets.discard(block.offset)

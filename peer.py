@@ -1,5 +1,4 @@
 import asyncio
-from struct import pack, unpack
 from bitstring import BitArray
 
 from core.response_handler import PeerResponseHandler as Handler

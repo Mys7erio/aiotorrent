@@ -2,6 +2,9 @@ from struct import pack, unpack
 from bitstring import BitArray
 
 
+from core.block import Block
+
+
 class PeerResponseHandler:
 	def __init__(self, artifacts, Peer=None):
 		self.artifacts = artifacts
@@ -97,7 +100,8 @@ class PeerResponseHandler:
 		# This is the only method which returns any value
 		try:
 			index, offset, data = self.artifacts['piece']
-			return (index, offset, data)
+			block = Block(index, offset, data)
+			return block
 		except TypeError:
 			raise TypeError(f"Handler: Failed To Extract Piece sent by {self.Peer}")
 		finally:
