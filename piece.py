@@ -7,6 +7,7 @@ from core.message_generator import MessageGenerator as Generator
 
 
 BLOCK_SIZE = 2 ** 14
+BLOCKS_PER_PEER = 8
 
 
 class Piece:
@@ -23,24 +24,21 @@ class Piece:
 		"""
 		self.data = bytes()
 		self.blocks = dict()
-		self.block_offsets = set()
+		# self.block_offsets = set()
 		self.piece_num = piece_num
 		self.active_peers = active_peers
 
 		self._is_last_piece = False
-		self._last_offset = 0
+		# self._last_offset = 0
 		self.total_blocks = piece_info['total_blocks']
 
 		# If piece_num matches the num of total pieces then it's the last piece.
 		if piece_num == piece_info['total_pieces']:
 			self._is_last_piece = True
 			self.total_blocks, self._last_offset = divmod(piece_info['last_piece'], BLOCK_SIZE)
-
-		# Add block offsets to block_offsets set
-		for block_num in range(self.total_blocks):
-			self.block_offsets.add(
-				(block_num * BLOCK_SIZE)
-			)
+			# Since last block of last piece will have to be requested with
+			# second last block of last piece.
+			self.total_blocks -= 1
 
 
 	def __repr__(self):
@@ -48,7 +46,7 @@ class Piece:
 
 
 
-	async def get_block(self, block_offset):
+	async def fetch_block(self, block_offsets: list):
 		"""
 		This function fetches a block from a peer. It returns
 		either an Block object or a None Object.
@@ -58,59 +56,83 @@ class Piece:
 			BLOCK_SIZE. If there are 10 blocks in piece #0, block
 			offset for block num 8 would be (8 * BLOCK_SIZE) = 131702
 		"""
-		piece_num = self.piece_num
-		block_num = int(block_offset / BLOCK_SIZE)
+		requests = bytes()
 		Peer = await self.active_peers.get()
 
-		request_message = Generator.gen_request(self.piece_num, block_offset)
+		for offset in block_offsets:
+			block_num = int(offset / BLOCK_SIZE)
+			print(f"Requesting Block #{self.piece_num}-{block_num} from {Peer}")
+			request_message = Generator.gen_request(self.piece_num, offset)
 
-		# Last block of last piece will be requested with second last block 
-		if self._is_last_piece and block_num == (self.total_blocks - 1):
-			request_message = Generator.gen_request(
-				self.piece_num,
-				block_offset,
-				BLOCK_SIZE=(BLOCK_SIZE + self._last_offset)
-			)
+			# Last block of last piece will be requested with second last block.
+			if self._is_last_piece and block_num == self.total_blocks:
+				request_message = Generator.gen_request(
+					self.piece_num,
+					block_offset,
+					BLOCK_SIZE=(BLOCK_SIZE + self._last_offset)
+				)
+			requests += request_message
 
-		response = await Peer.send_message(request_message)
-		
-		# If empty response, add block_offset back to unavailable blocks
-		if not response:
-			self.block_offsets.add(block_offset)
-			return None
+		response = await Peer.send_message(requests, timeout=5)
+		if not response: return None
 
 		try:
 			artifacts = Parser(response).parse()
-			block = await Handler(artifacts, Peer=Peer).handle()
-			return block # Return here does not prevent execution of finally block
+			blocks = await Handler(artifacts, Peer=Peer).handle()
+			[print(f"Got {block} from {Peer}") for block in blocks]
+			return blocks # Return here does not prevent execution of finally block
 		except TypeError as E:
-			print(E)
-			self.block_offsets.add(block_offset)
+			print(f"Fetch Block: {E}")
 			return None
 		finally:
 			await self.active_peers.put(Peer)
 			self.active_peers.task_done()
 
 
-	async def get_piece(self):
+	def is_piece_complete(self) -> bool:
+		for block_num in range(self.total_blocks):
+			if not block_num in self.blocks:
+				return False
+		return True
+
+
+	def gen_offsets(self) -> set:
+		blocks = set()
+		for block_num in range(self.total_blocks):
+			if not block_num in self.blocks:
+				block_offset = block_num * BLOCK_SIZE
+				blocks.add(block_offset)
+		return blocks
+
+
+	async def download(self):
 		task_list = list()
-		while self.block_offsets:
-			while not self.active_peers.empty() and self.block_offsets:
-				offset = self.block_offsets.pop()
-				task_list.append(asyncio.create_task(self.get_block(offset)))
-				
+		# EMPTY_BLOCK_THRESHOLD = 3
+
+		while not self.is_piece_complete():
+			block_offsets = self.gen_offsets()
+			for _ in range(self.active_peers.qsize()):
+				try:
+					offsets = {block_offsets.pop() for _ in range(BLOCKS_PER_PEER)}
+					block_offsets.difference_update(offsets)
+				except KeyError:
+					# Blocks to be downloaded is less than BLOCKS_PER_PEER
+					# A single peer can download all blocks now
+					offsets = self.gen_offsets()
+				finally:
+					task_list.append(asyncio.create_task(self.fetch_block(offsets)))
+
 			# Execute all tasks in parallel
 			results = await asyncio.gather(*task_list)
 
-			# Remove NoneType objects from the list
+			# Remove NoneType objects and merge inner lists to outerlists
 			results = [result for result in results if result]
+			results = sum(results, [])
 
-			# In case of successful retrieval of block, add block to
-			# self.blocks and remove block_offset from self.block_offsets
+			# In case of successful retrieval of block, add block to self.blocks
 			for block in results:
 				if block.data:
 					self.blocks.update({block.num: block})
-					self.block_offsets.discard(block.offset)
 
 		# Concatenate all the block values
 		for block_num in range(self.total_blocks):

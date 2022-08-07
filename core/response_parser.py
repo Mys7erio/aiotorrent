@@ -43,15 +43,15 @@ class PeerResponseParser:
 					self.response = bytes()
 
 				# finally parse the blob of response
-				if _debug: print(f"{self.message_len=}, {self.message_id=}, {self.response=}")
+				if _debug: print(f"{self.message_len=}, {self.message_id=}, {self.response[:16]=}")
 				self.messages[self.message_id]()
 
-			# In case of an unknown message id / general exception, clear the response
+			# In case of general exception, clear the response
 			except Exception as E:
-				print(E)
+				print(f"Parser: {E}")
 				self.response = bytes()
-			finally:
-				return self.artifacts
+			
+		return self.artifacts
 
 		
 	def parse_keep_alive(self):
@@ -85,12 +85,14 @@ class PeerResponseParser:
 	def parse_piece(self):
 		# Returns index, offset and block except when there's
 		# an unpack error. In the second case, It raises a TypeError
+		if not 'pieces' in self.artifacts: self.artifacts['pieces'] = list()
 		block_len = self.message_len - 9
 		total = block_len + 13
 		try:
 			index, offset = unpack('>II', self.response[5: 13])
-			block = self.response[13:]
-			self.artifacts['piece'] = (index, offset, block)
+			data = self.response[13:total]
+			block_info = (index, offset, data)
+			self.artifacts['pieces'].append(block_info)
 		except UnpackError:
 			raise TypeError("Parser: Failed to extract piece")
 		finally:
@@ -103,7 +105,7 @@ class PeerResponseParser:
 		total = self.message_len + self.message_id
 		message = self.response[5:total]
 		self.response = self.response[total:]
-		self.artifacts({'bitfield': message})
+		self.artifacts.update({'bitfield': message})
 		
 		
 	def parse_handshake(self):

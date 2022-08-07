@@ -22,7 +22,7 @@ class PeerResponseHandler:
 			if "have" in self.artifacts: self.handle_bitfield()
 			if "bitfield" in self.artifacts: self.handle_bitfield()
 			# Piece handler is special as it returns values
-			if "piece" in self.artifacts: return self.handle_piece()
+			if "pieces" in self.artifacts: return self.handle_piece()
 
 
 
@@ -88,8 +88,8 @@ class PeerResponseHandler:
 		# Finally set Peer pieces value to local pieces value
 		self.Peer.pieces = pieces
 		try:
-			self.artifacts.pop('have')
-			self.artifacts.pop('bitfield')
+			if 'have' in self.artifacts: self.artifacts.pop('have')
+			if 'bitfield' in self.artifacts: self.artifacts.pop('bitfield')
 		except KeyError:
 			...
 		finally:
@@ -98,14 +98,17 @@ class PeerResponseHandler:
 
 	def handle_piece(self):
 		# This is the only method which returns any value
-		try:
-			index, offset, data = self.artifacts['piece']
-			block = Block(index, offset, data)
-			return block
-		except TypeError:
-			raise TypeError(f"Handler: Failed To Extract Piece sent by {self.Peer}")
-		finally:
-			self.artifacts.pop('piece')
+		blocks = list()
+		for block_info in self.artifacts['pieces']:
+			try:
+				index, offset, data = block_info
+				block = Block(index, offset, data)
+				blocks.append(block)
+			except TypeError:
+				raise TypeError(f"Handler: Failed To Extract Piece sent by {self.Peer}")
+			
+		self.artifacts.pop('pieces')
+		return blocks
 
 
 

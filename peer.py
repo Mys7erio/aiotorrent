@@ -74,13 +74,13 @@ class Peer:
 			await Handler(artifacts, Peer=self).handle()
 
 
-	async def send_message(self, message, _debug=False):
+	async def send_message(self, message, timeout=3, _debug=False):
 		EMPTY_RESPONSE_THRESHOLD = 5
 		response_buffer = bytes()
 		self.writer.write(message)
 		try:
 			while True:
-				response = await asyncio.wait_for(self.reader.read(1024), 3)
+				response = await asyncio.wait_for(self.reader.read(1024), timeout=timeout)
 				response_buffer += response
 
 				if _debug: print(f"{self}, {response=}")

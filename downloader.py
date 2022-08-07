@@ -44,7 +44,7 @@ class FilesDownloadManager:
 
 		[print(f"{key}:{val}") for key, val in piece_info.items()]
 		self.active_peers = asyncio.Queue()
-		[self.active_peers.put_nowait(peer) for peer in active_peers]
+		[self.active_peers.put_nowait(peer) for peer in active_peers[:2]]
 
 
 	async def get_file(self, file: File):
@@ -53,7 +53,7 @@ class FilesDownloadManager:
 		while piece_nums:
 			piece_num = piece_nums.pop(0)
 			piece = Piece(piece_num, self.piece_info, self.active_peers)
-			await piece.get_piece()
+			await piece.download()
 			piece_hash = hashlib.sha1(piece.data).digest()
 
 			# If piece hash does not match, prepend piece num back to piece_nums.
