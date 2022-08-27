@@ -12,6 +12,7 @@ class Peer:
 		self.torrent_info = torrent_info
 
 		self.active = False
+		self.busy = False
 
 		self.choking_me = True
 		self.am_interested = False
@@ -75,6 +76,10 @@ class Peer:
 
 
 	async def send_message(self, message, timeout=3, _debug=False):
+		# Raise error if send_message() is called but peer is inactive
+		if not self.active:
+			raise BrokenPipeError(f"Connection to {self} has been closed")
+			
 		EMPTY_RESPONSE_THRESHOLD = 5
 		response_buffer = bytes()
 		self.writer.write(message)

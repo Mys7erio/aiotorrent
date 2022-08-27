@@ -22,7 +22,6 @@ class File:
 		return f"{self.name} ({self.size})"
 
 
-
 class FileTree(list):
 	"""
 	FileTree inherits from list class making FileTree objects

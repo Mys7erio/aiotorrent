@@ -8,8 +8,6 @@ class Block:
 		self.data = data
 		self.num = int(offset / BLOCK_SIZE) # Block index of a particular piece
 
-		if self.data: print(f"Got {self}")
-
 
 	def __repr__(self):
 		return (f"Block #{self.piece_num}-{self.num}")

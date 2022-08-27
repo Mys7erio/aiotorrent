@@ -3,12 +3,15 @@ import hashlib
 from pathlib import Path
 
 from piece import Piece
-from core.file_utils import FileTree, File
+from core.file_utils import File, FileTree
+from core.peers_manager import PeersManager
 from core.response_parser import PeerResponseParser as Parser
 from core.message_generator import MessageGenerator as Generator
 
 
 BLOCK_SIZE = 2 ** 14
+PIECES_PER_CYCLE = 5
+
 
 class FilesDownloadManager:
 	def __init__(self, torrent_info: dict, active_peers: list):
@@ -43,33 +46,46 @@ class FilesDownloadManager:
 		self.file_tree = FileTree(torrent_info)
 
 		[print(f"{key}:{val}") for key, val in piece_info.items()]
-		self.active_peers = asyncio.Queue()
-		[self.active_peers.put_nowait(peer) for peer in active_peers[:2]]
+		self.active_peers = active_peers
 
 
 	async def get_file(self, file: File):
 		piece_nums = [piece_num for piece_num in range(file.start_piece, file.end_piece + 1)]
+		peers_manager = PeersManager(self.active_peers)
 
 		while piece_nums:
-			piece_num = piece_nums.pop(0)
-			piece = Piece(piece_num, self.piece_info, self.active_peers)
-			await piece.download()
-			piece_hash = hashlib.sha1(piece.data).digest()
+			task_list = list()
+			
+			for _ in range(PIECES_PER_CYCLE):
+				if not piece_nums:
+					break
+				piece_num = piece_nums.pop(0)
+				piece = Piece(piece_num, self.piece_info, peers_manager)
+				task_list.append(asyncio.create_task(piece.download()))
 
-			# If piece hash does not match, prepend piece num back to piece_nums.
-			# Python doesn't have a prepend function, improvised with the insert func.
-			if piece_hash != self.piece_hashmap[piece_num]:
-				print(f"Piece Hash Does Not Match for {piece}")
-				piece_nums.insert(0, piece_num)
-				continue
+			pieces = await asyncio.gather(*task_list)
 
-			if file.start_piece == piece_num:
-				piece.data = piece.data[file.start_byte:]
+			# For every piece, if piece hash does not match, prepend piece num back to piece_nums.
+			for piece in pieces:
+				piece_hash = hashlib.sha1(piece.data).digest()
 
-			if file.end_piece == piece_num:
-				piece.data = piece.data[:file.end_byte]
+				if piece_hash != self.piece_hashmap[piece.piece_num]:
+					print(f"Piece Hash Does Not Match for {piece}")
+					piece_nums.insert(0, piece_num)
+					# continue
+					# Discard all pieces in the list if piece hash does not match
+					# TODO: Find a better approach to handle piece hash mismatch
+					break
 
-			self.write_piece_to_disk(piece, file)
+				if file.start_piece == piece.piece_num:
+					piece.data = piece.data[file.start_byte:]
+
+				if file.end_piece == piece.piece_num:
+					piece.data = piece.data[:file.end_byte]
+
+				self.write_piece_to_disk(piece, file)
+
+			if not piece_nums: break
 		print(f"File {file} downloaded")
 
 
@@ -77,8 +93,8 @@ class FilesDownloadManager:
 		# Filepath is file name prepended by directory name
 		filepath = f"{self.directory}/{file.name}"
 
-		with open(filepath, 'ab') as file:
-			file.write(piece.data)
+		with open(filepath, 'ab') as target_file:
+			target_file.write(piece.data)
 
 		print(f"Wrote {piece} to {file.name}")
 
