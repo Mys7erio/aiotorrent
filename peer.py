@@ -1,5 +1,4 @@
 import asyncio
-from struct import pack, unpack
 from bitstring import BitArray
 
 from core.response_handler import PeerResponseHandler as Handler
@@ -13,6 +12,7 @@ class Peer:
 		self.torrent_info = torrent_info
 
 		self.active = False
+		self.busy = False
 
 		self.choking_me = True
 		self.am_interested = False
@@ -75,16 +75,20 @@ class Peer:
 			await Handler(artifacts, Peer=self).handle()
 
 
-	async def send_message(self, message, _debug=False):
+	async def send_message(self, message, timeout=3, _debug=False):
+		# Raise error if send_message() is called but peer is inactive
+		if not self.active:
+			raise BrokenPipeError(f"Connection to {self} has been closed")
+			
 		EMPTY_RESPONSE_THRESHOLD = 5
 		response_buffer = bytes()
 		self.writer.write(message)
 		try:
 			while True:
-				response = await asyncio.wait_for(self.reader.read(1024), 3)
+				response = await asyncio.wait_for(self.reader.read(1024), timeout=timeout)
 				response_buffer += response
 
-				if _debug: ic(self, response)
+				if _debug: print(f"{self}, {response=}")
 				if len(response) <= 0: EMPTY_RESPONSE_THRESHOLD -= 1
 				if EMPTY_RESPONSE_THRESHOLD < 0:
 					await self.disconnect(f"Empty Response Threshold Exceeded!")

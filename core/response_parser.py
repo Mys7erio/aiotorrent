@@ -37,22 +37,21 @@ class PeerResponseParser:
 				# keep-alive messages have length 0 and no message_id
 				if self.message_len == 0 and not self.message_id: self.parse_keep_alive()
 
-				# if msg id not in message index, clear response and close connection
+				# if msg id not in message index, clear response
 				if self.message_id not in self.messages:
-					ic("Weird:", self.message_id, self.message_len, self.response)
+					print(f"{self.message_id=}, {self.message_len=}, {self.response[:16]}")
 					self.response = bytes()
-					breakpoint()
 
 				# finally parse the blob of response
-				if _debug: ic(self.message_len, self.message_id, self.response)
+				if _debug: print(f"{self.message_len=}, {self.message_id=}, {self.response[:16]=}")
 				self.messages[self.message_id]()
 
+			# In case of general exception, clear the response
 			except Exception as E:
-				print(E)
-				breakpoint()
-
-			finally:
-				return self.artifacts
+				print(f"Parser: {E}")
+				self.response = bytes()
+			
+		return self.artifacts
 
 		
 	def parse_keep_alive(self):
@@ -86,12 +85,14 @@ class PeerResponseParser:
 	def parse_piece(self):
 		# Returns index, offset and block except when there's
 		# an unpack error. In the second case, It raises a TypeError
+		if not 'pieces' in self.artifacts: self.artifacts['pieces'] = list()
 		block_len = self.message_len - 9
 		total = block_len + 13
 		try:
 			index, offset = unpack('>II', self.response[5: 13])
-			block = self.response[13:]
-			self.artifacts['piece'] = (index, offset, block)
+			data = self.response[13:total]
+			block_info = (index, offset, data)
+			self.artifacts['pieces'].append(block_info)
 		except UnpackError:
 			raise TypeError("Parser: Failed to extract piece")
 		finally:
@@ -104,7 +105,7 @@ class PeerResponseParser:
 		total = self.message_len + self.message_id
 		message = self.response[5:total]
 		self.response = self.response[total:]
-		self.artifacts({'bitfield': message})
+		self.artifacts.update({'bitfield': message})
 		
 		
 	def parse_handshake(self):

@@ -22,11 +22,13 @@ class File:
 		return f"{self.name} ({self.size})"
 
 
-
-class FileTree:
+class FileTree(list):
+	"""
+	FileTree inherits from list class making FileTree objects
+	an iterator as well as making them subscriptable.
+	"""
 	def __init__(self, torrent_info: dict) -> None:
 		counted = 0
-		self.files = list()
 		piece_size = torrent_info['piece_len']
 
 		# If it is a single file torrent, create a dictionary in a torrent format
@@ -35,17 +37,12 @@ class FileTree:
 				'path': torrent_info['files'],
 				'length': torrent_info['size'],
 			}
-			self.files.append(File(file, counted, piece_size))
+			self.append(File(file, counted, piece_size))
 			return
 
 		# Create file object for every file in the torrent.
 		# Increase the value of the counted var by length of each file.
 		for file in torrent_info['files']:
-			self.files.append(
-				File(file, counted, piece_size)
-			)
+			self.append(File(file, counted, piece_size))
 			counted += file['length']
 
-
-	def __repr__(self):
-		return str(self.files)

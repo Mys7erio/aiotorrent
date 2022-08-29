@@ -82,10 +82,8 @@ class Torrent:
 				if not tracker in self.torrent_info['trackers']:
 					self.torrent_info['trackers'].append(tracker)
 
-
 		self.files = FileTree(self.torrent_info)
-
-		ic(self.torrent_info['files'])
+		[print(file) for file in self.torrent_info['files']]
 		print("*"*64)
 
 
@@ -114,7 +112,7 @@ class Torrent:
 
 
 	def show_files(self):
-		for file in self.files.files:
+		for file in self.files:
 			print(f"File: {file}")
 
 
