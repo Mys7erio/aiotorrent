@@ -5,8 +5,6 @@ from pathlib import Path
 from piece import Piece
 from core.file_utils import File, FileTree
 from core.peers_manager import PeersManager
-from core.response_parser import PeerResponseParser as Parser
-from core.message_generator import MessageGenerator as Generator
 
 
 BLOCK_SIZE = 2 ** 14
@@ -83,19 +81,8 @@ class FilesDownloadManager:
 				if file.end_piece == piece.piece_num:
 					piece.data = piece.data[:file.end_byte]
 
-				self.write_piece_to_disk(piece, file)
-
+				yield piece
 			if not piece_nums: break
 		print(f"File {file} downloaded")
-
-
-	def write_piece_to_disk(self, piece: Piece, file: File):
-		# Filepath is file name prepended by directory name
-		filepath = f"{self.directory}/{file.name}"
-
-		with open(filepath, 'ab') as target_file:
-			target_file.write(piece.data)
-
-		print(f"Wrote {piece} to {file.name}")
 
 

@@ -1,6 +1,5 @@
 import asyncio
 
-from core.block import Block
 from core.response_parser import PeerResponseParser as Parser
 from core.response_handler import PeerResponseHandler as Handler
 from core.message_generator import MessageGenerator as Generator

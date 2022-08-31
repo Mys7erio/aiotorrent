@@ -110,5 +110,4 @@ class Peer:
 
 
 if __name__ == "__main__":
-	torrent_info = {'info_hash': b'\xdd\x82U\xec\xdc|\xa5_\xb0\xbb\xf8\x13#\xd8pb\xdb\x1fm\x1c'}
-	from utils.mock import peer_list
+	...

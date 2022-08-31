@@ -1,8 +1,7 @@
-from struct import pack, unpack
+from struct import unpack
 from bitstring import BitArray
 
-
-from core.block import Block
+from core.util import Block
 
 
 class PeerResponseHandler:

@@ -4,7 +4,7 @@ import hashlib
 import platform
 
 from peer import Peer
-from core.util import chunk
+from core.util import chunk, PieceWriter
 from core.file_utils import FileTree
 from tracker_factory import TrackerFactory
 from downloader import FilesDownloadManager
@@ -13,7 +13,8 @@ from downloader import FilesDownloadManager
 # Asyncio throws runtime error if the platform is windows
 # RuntimeError: Event loop is closed
 # FOUND FIX: https://stackoverflow.com/a/66772242
-if platform.system() == 'Windows': asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if platform.system() == 'Windows':
+	asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 
@@ -141,7 +142,10 @@ class Torrent:
 	async def download(self, file):
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		dm = FilesDownloadManager(self.torrent_info, active_peers)
-		await dm.get_file(file)
+		directory = self.torrent_info['name']
+		with PieceWriter(directory, file) as piece_writer:
+			async for piece in dm.get_file(file):
+				piece_writer.write(piece)
 
 
 
