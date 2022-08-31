@@ -4,6 +4,9 @@ from bitstring import BitArray
 from core.util import Block
 
 
+from core.block import Block
+
+
 class PeerResponseHandler:
 	def __init__(self, artifacts, Peer=None):
 		self.artifacts = artifacts
