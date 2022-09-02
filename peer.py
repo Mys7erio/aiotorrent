@@ -6,6 +6,33 @@ from core.response_parser import PeerResponseParser as Parser
 from core.message_generator import MessageGenerator as Generator
 
 
+class PeersManager:
+	def __init__(self, peer_list):
+		self.peer_list = peer_list
+		self.black_list = list()
+
+
+	def dispatch(self, piece_num):
+		for peer in self.peer_list:
+			ip, port = peer.address
+			if not ip in self.black_list:
+				if peer.pieces[piece_num]:
+					peer.busy = True
+					self.peer_list.remove(peer)
+					return peer
+		# Raise ValueError if no peers are available
+		raise ValueError("No Peers Available")
+
+
+	def retrieve(self, peer):
+		peer.busy = False
+		self.peer_list.append(peer)
+
+
+	def blacklist(self, ip):
+		self.black_list.append(ip)
+
+
 class Peer:
 	def __init__(self, address, torrent_info):
 		self.address = address
@@ -110,5 +137,4 @@ class Peer:
 
 
 if __name__ == "__main__":
-	torrent_info = {'info_hash': b'\xdd\x82U\xec\xdc|\xa5_\xb0\xbb\xf8\x13#\xd8pb\xdb\x1fm\x1c'}
-	from utils.mock import peer_list
+	...

@@ -1,6 +1,5 @@
 import asyncio
 
-from core.block import Block
 from core.response_parser import PeerResponseParser as Parser
 from core.response_handler import PeerResponseHandler as Handler
 from core.message_generator import MessageGenerator as Generator
@@ -71,7 +70,7 @@ class Piece:
 
 			requests += request_message
 
-		response = await peer.send_message(requests, timeout=5)
+		response = await peer.send_message(requests, timeout=3)
 		if not response: raise IOError(f"{peer} Sent Empty Blocks")
 
 		try:
