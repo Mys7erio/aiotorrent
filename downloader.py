@@ -82,7 +82,6 @@ class FilesDownloadManager:
 					piece.data = piece.data[:file.end_byte]
 
 				yield piece
-			if not piece_nums: break
 		print(f"File {file} downloaded")
 
 
