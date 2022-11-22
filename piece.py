@@ -71,7 +71,12 @@ class Piece:
 			requests += request_message
 
 		response = await peer.send_message(requests, timeout=5)
-		if not response: raise IOError(f"{peer} Sent Empty Blocks")
+
+		if not response:
+			# If peer sends empty block, update the piece_info of peer
+			# by setting it to false and raise IOError
+			peer.update_piece_info(self.piece_num, False)
+			raise IOError(f"{peer} Sent Empty Blocks")
 
 		try:
 			artifacts = Parser(response).parse()
@@ -119,12 +124,18 @@ class Piece:
 			task_list.append(asyncio.create_task(self.fetch_blocks(offsets, peer)))
 
 			try:
-				# Execute all tasks in parallel
+			# Execute all tasks in parallel
 				results = await asyncio.gather(*task_list)
+
+			# In case of empty block / broken pipe, get a new peer if available
+			# or continuously wait for 1s untill a peer is available
 			except (BrokenPipeError, IOError):
-				self.peers_manager.retrieve(peer)
-				peer = self.peers_manager.dispatch(self.piece_num)
-				continue
+				while not self.peers_manager.peers_available(self.piece_num):
+					await asyncio.sleep(1)
+				else:
+					self.peers_manager.retrieve(peer)
+					peer = self.peers_manager.dispatch(self.piece_num)
+					continue
 
 			# Remove NoneType objects and merge inner lists to outerlists
 			results = [result for result in results if result]

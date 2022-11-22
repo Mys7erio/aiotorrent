@@ -8,7 +8,7 @@ from core.peers_manager import PeersManager
 
 
 BLOCK_SIZE = 2 ** 14
-PIECES_PER_CYCLE = 5
+# PIECES_PER_CYCLE = 5
 
 
 class FilesDownloadManager:
@@ -54,9 +54,10 @@ class FilesDownloadManager:
 		while piece_nums:
 			task_list = list()
 			
-			for _ in range(PIECES_PER_CYCLE):
-				if not piece_nums:
-					break
+			# for _ in range(PIECES_PER_CYCLE):
+			while piece_nums and peers_manager.peers_available(piece_nums[0]):
+				# if not piece_nums:
+				# 	break
 				piece_num = piece_nums.pop(0)
 				piece = Piece(piece_num, self.piece_info, peers_manager)
 				task_list.append(asyncio.create_task(piece.download()))

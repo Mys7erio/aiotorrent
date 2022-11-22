@@ -12,7 +12,7 @@ class Peer:
 		self.torrent_info = torrent_info
 
 		self.active = False
-		self.busy = False
+		# self.busy = False
 
 		self.choking_me = True
 		self.am_interested = False
@@ -106,6 +106,11 @@ class Peer:
 
 		finally:
 			return response_buffer
+
+
+	def update_piece_info(self, piece_num: int, has_piece: bool):
+		# Utility function to update piece information of peer
+		self.pieces[piece_num] = has_piece
 
 
 
