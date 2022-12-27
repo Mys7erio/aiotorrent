@@ -8,7 +8,6 @@ from core.peers_manager import PeersManager
 
 
 BLOCK_SIZE = 2 ** 14
-# PIECES_PER_CYCLE = 5
 
 
 class FilesDownloadManager:
@@ -42,39 +41,58 @@ class FilesDownloadManager:
 		self.piece_info = piece_info
 		self.piece_hashmap = torrent_info['piece_hashmap']
 		self.file_tree = FileTree(torrent_info)
+		self.peers_man = PeersManager(active_peers)
 
 		[print(f"{key}:{val}") for key, val in piece_info.items()]
-		self.active_peers = active_peers
+
+		# Will be populated when get_file() is called
+		self.download_list = []
 
 
-	async def get_file(self, file: File):
-		piece_nums = [piece_num for piece_num in range(file.start_piece, file.end_piece + 1)]
-		peers_manager = PeersManager(self.active_peers)
+	def init_downloader(self, file: File) -> None:
+		self.download_list = [piece_num for piece_num in range(file.start_piece, file.end_piece + 1)]
 
-		while piece_nums:
-			task_list = list()
-			
-			# for _ in range(PIECES_PER_CYCLE):
-			while piece_nums and peers_manager.peers_available(piece_nums[0]):
-				# if not piece_nums:
-				# 	break
-				piece_num = piece_nums.pop(0)
-				piece = Piece(piece_num, self.piece_info, peers_manager)
-				task_list.append(asyncio.create_task(piece.download()))
+
+	def file_downloaded(self) -> None:
+		'''
+		Returns true if all the pieces have been downloaded, false otherwise
+		'''
+		return False if self.download_list else True
+
+
+	async def get_file(self, file: File) -> Piece:
+		self.init_downloader(file)
+		task_list = list()
+
+		while True:
+			# Break loop if file downloaded
+			if self.file_downloaded(): break
+
+			batch_size = min(self.peers_man.pool_size(), len(self.download_list))
+			# print(f"Using Batch Size Of: {batch_size}")
+
+			for _ in range(batch_size):
+				# Have to call this twice :/
+				if not self.file_downloaded():
+					piece_num = self.download_list.pop(0)
+					piece = Piece(piece_num, self.piece_info, self.peers_man)
+					task = asyncio.create_task(piece.download())
+					task_list.append(task)
 
 			pieces = await asyncio.gather(*task_list)
+			task_list.clear()
 
-			# For every piece, if piece hash does not match, prepend piece num back to piece_nums.
+			# For every piece, if piece hash does not match, create a download
+			# task of that piece and append it to tasklist.
 			for piece in pieces:
 				piece_hash = hashlib.sha1(piece.data).digest()
 
 				if piece_hash != self.piece_hashmap[piece.piece_num]:
 					print(f"Piece Hash Does Not Match for {piece}")
-					piece_nums.insert(0, piece_num)
-					# continue
-					# Discard all pieces in the list if piece hash does not match
-					# TODO: Find a better approach to handle piece hash mismatch
-					break
+					piece = Piece(piece_num, self.piece_info, peers_manager)
+					task = asyncio.create_task(piece.download())
+					task_list.insert(0, task)
+					continue
 
 				if file.start_piece == piece.piece_num:
 					piece.data = piece.data[file.start_byte:]

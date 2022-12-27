@@ -1,5 +1,6 @@
 import asyncio
 
+from core.util import Block
 from core.response_parser import PeerResponseParser as Parser
 from core.response_handler import PeerResponseHandler as Handler
 from core.message_generator import MessageGenerator as Generator
@@ -10,7 +11,7 @@ BLOCKS_PER_CYCLE = 8
 
 
 class Piece:
-	def __init__(self, piece_num, piece_info, peers_manager):
+	def __init__(self, piece_num: int, piece_info: dict[str, int], peers_manager: 'PeersManager'):
 		"""
 		piece_num: int
 			Zero based piece index to be fetched from peers
@@ -41,7 +42,7 @@ class Piece:
 		return (f"Piece #{self.piece_num}")
 
 
-	async def fetch_blocks(self, block_offsets, peer):
+	async def fetch_blocks(self, block_offsets: list[int], peer: 'Peer') -> list[Block]:
 		"""
 		This function fetches a block from a peer. It returns
 		either an Block object or a None Object.
@@ -72,9 +73,9 @@ class Piece:
 
 		response = await peer.send_message(requests, timeout=5)
 
+		# If peer sends empty block, update the piece_info of peer
+		# by setting it to false and raise IOError
 		if not response:
-			# If peer sends empty block, update the piece_info of peer
-			# by setting it to false and raise IOError
 			peer.update_piece_info(self.piece_num, False)
 			raise IOError(f"{peer} Sent Empty Blocks")
 
@@ -82,7 +83,7 @@ class Piece:
 			artifacts = Parser(response).parse()
 			blocks = await Handler(artifacts, Peer=peer).handle()
 			# [print(f"Got {block} from {peer}") for block in blocks]
-			return blocks # Return here does not prevent execution of finally block
+			return blocks
 		except TypeError as E:
 			print(f"Fetch Block: {E}")
 			return None
@@ -106,8 +107,8 @@ class Piece:
 		return blocks
 
 
-	async def download(self):
-		peer = self.peers_manager.dispatch(self.piece_num)
+	async def download(self) -> 'Piece':
+		peer = await self.peers_manager.dispatch()
 
 		while not self.is_piece_complete():
 			task_list = list()
@@ -121,21 +122,15 @@ class Piece:
 			else:
 				offsets = self.gen_offsets()
 
-			task_list.append(asyncio.create_task(self.fetch_blocks(offsets, peer)))
+			blocks = self.fetch_blocks(offsets, peer)
+			task = asyncio.create_task(blocks)
+			task_list.append(task)
 
 			try:
-			# Execute all tasks in parallel
 				results = await asyncio.gather(*task_list)
-
-			# In case of empty block / broken pipe, get a new peer if available
-			# or continuously wait for 1s untill a peer is available
 			except (BrokenPipeError, IOError):
-				while not self.peers_manager.peers_available(self.piece_num):
-					await asyncio.sleep(1)
-				else:
-					self.peers_manager.retrieve(peer)
-					peer = self.peers_manager.dispatch(self.piece_num)
-					continue
+				peer = await self.peers_manager.dispatch()
+				continue
 
 			# Remove NoneType objects and merge inner lists to outerlists
 			results = [result for result in results if result]
@@ -150,5 +145,5 @@ class Piece:
 		for block_num in range(self.total_blocks):
 			self.data += self.blocks[block_num].data
 
-		self.peers_manager.retrieve(peer)
+		await self.peers_manager.retrieve(peer)
 		return self

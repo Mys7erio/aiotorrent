@@ -1,47 +1,27 @@
+import asyncio
+
+
 class PeersManager:
 	def __init__(self, peer_list):
-		self.peer_list = peer_list
-		self.peers_selected = list()
-		self.black_list = list()
+		self.peers = asyncio.Queue()
+		[self.peers.put_nowait(peer) for peer in peer_list]
 
 
-	def dispatch(self, piece_num):
-		for peer in self.peers_selected:
-			ip, port = peer.address
-			if not ip in self.black_list:
-				if peer.pieces[piece_num]:
-					# peer.busy = True
-					self.peers_selected.remove(peer)
-					return peer
-		# Raise ValueError if no peers are available
-		raise ValueError("No Peers Available")
+	def peers_avail(self) -> bool:
+		'''Checks if peer queue is not empty'''
+		return not self.peers.empty()
 
 
-	def retrieve(self, peer):
-		# peer.busy = False
-		self.peer_list.append(peer)
+	def pool_size(self) -> int:
+		return self.peers.qsize()
 
 
-	def peers_available(self, piece_num):
-		for peer in self.peer_list:
-			ip, port = peer.address
-			if not ip in self.black_list:
-				if peer.pieces[piece_num]:
-					self.peers_selected.append(peer)
-					self.peer_list.remove(peer)
-					return True
-		return False
+	async def dispatch(self):
+		peer = await self.peers.get()
+		return peer
 
 
-	# def blacklist(self, ip):
-	# 	self.black_list.append(ip)
-
-
-	# async def hailmary(self, message):
-	# 	for peer in self.peer_list:
-	# 		try:
-	# 			response = await peer.send_message(message)
-	# 			if response: breakpoint()
-	# 		except BrokenPipeError:
-	# 			peer.active = False
+	async def retrieve(self, peer):
+		self.peers.task_done()
+		await self.peers.put(peer)
 

@@ -16,13 +16,20 @@ async def main():
 
 	await torrent.init()
 	await torrent.download(sub)
-	await torrent.download(poster)
 	await torrent.download(video)
+	await torrent.download(poster)
 
 	end = dt.now()
 	elapsed = end - start
 	print(f"Execution completed in: {elapsed}")
 	breakpoint()
+
+
+async def stream_test():
+	torrent = Torrent('utils/big-buck-bunny.torrent')
+	sub, video, poster = torrent.files
+	await torrent.init()
+	await torrent.stream(video)
 
 
 asyncio.run(main())

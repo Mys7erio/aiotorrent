@@ -58,6 +58,7 @@ class PeerResponseParser:
 		# keep-alive
 		message = self.response[:4]
 		self.response = self.response[4:]
+		self.artifacts.update({'keep_alive': True})
 		
 	
 	def parse_choke(self):
