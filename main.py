@@ -32,5 +32,5 @@ async def stream_test():
 	await torrent.stream(video)
 
 
-asyncio.run(main())
+asyncio.run(stream_test())
 
