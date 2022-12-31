@@ -141,28 +141,31 @@ class Torrent:
 
 	async def download(self, file):
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
-		dm = FilesDownloadManager(self.torrent_info, active_peers)
+		fd_man = FilesDownloadManager(self.torrent_info, active_peers)
 		directory = self.torrent_info['name']
+
 		with PieceWriter(directory, file) as piece_writer:
-			async for piece in dm.get_file(file):
+			async for piece in fd_man.get_file(file):
 				piece_writer.write(piece)
+
+
+	async def __generate_torrent_stream(self, file):
+		active_peers = [peer for peer in self.peers if peer.has_handshaked]
+		fd_man = FilesDownloadManager(self.torrent_info, active_peers)
+		async for piece in fd_man.get_file(file):
+			yield piece.data
 
 
 	async def stream(self, file, host="127.0.0.1", port=8080):
 		from starlette.applications import Starlette
-		from starlette.responses import JSONResponse, StreamingResponse
+		from starlette.responses import StreamingResponse
 		from starlette.routing import Route
 
-
-		active_peers = [peer for peer in self.peers if peer.has_handshaked]
-		dm = FilesDownloadManager(self.torrent_info, active_peers)
-
-		async def stream_generator():
-				async for piece in dm.get_file(file):
-						yield piece.data
-
 		async def homepage(request):
-				return StreamingResponse(stream_generator(), media_type='video/mp4')
+			return StreamingResponse(
+				self.__generate_torrent_stream(file),
+				media_type='video/mp4'
+			)
 
 		app = Starlette(debug=True, routes=[
 				Route('/', homepage),

@@ -85,7 +85,7 @@ class Piece:
 			# [print(f"Got {block} from {peer}") for block in blocks]
 			return blocks
 		except TypeError as E:
-			print(f"Fetch Block: {E}")
+			print(f"Requesting Blocks for {self} from {peer} Returned None")
 			return None
 
 
@@ -129,7 +129,11 @@ class Piece:
 			try:
 				results = await asyncio.gather(*task_list)
 			except (BrokenPipeError, IOError):
+				# Bug Fixed: Losing peers when BrokenPipeError or IOError exceptions occured.
+				# Swap peer for a different peer by requesting a new peer first.
+				current_peer = peer
 				peer = await self.peers_manager.dispatch()
+				await self.peers_manager.retrieve(current_peer)
 				continue
 
 			# Remove NoneType objects and merge inner lists to outerlists

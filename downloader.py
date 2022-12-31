@@ -79,17 +79,19 @@ class FilesDownloadManager:
 					task = asyncio.create_task(piece.download())
 					task_list.append(task)
 
-			pieces = await asyncio.gather(*task_list)
-			task_list.clear()
+			try:
+				pieces = await asyncio.gather(*task_list)
+				task_list.clear()
+			except Exception as E:
+				print(E)
 
 			# For every piece, if piece hash does not match, create a download
 			# task of that piece and append it to tasklist.
 			for piece in pieces:
 				piece_hash = hashlib.sha1(piece.data).digest()
-
 				if piece_hash != self.piece_hashmap[piece.piece_num]:
 					print(f"Piece Hash Does Not Match for {piece}")
-					piece = Piece(piece_num, self.piece_info, peers_manager)
+					piece = Piece(piece_num, self.piece_info, self.peers_man)
 					task = asyncio.create_task(piece.download())
 					task_list.insert(0, task)
 					continue
