@@ -1,9 +1,9 @@
 import asyncio
 
-from core.util import Block
-from core.response_parser import PeerResponseParser as Parser
-from core.response_handler import PeerResponseHandler as Handler
-from core.message_generator import MessageGenerator as Generator
+from aiotorrent.core.util import Block
+from aiotorrent.core.response_parser import PeerResponseParser as Parser
+from aiotorrent.core.response_handler import PeerResponseHandler as Handler
+from aiotorrent.core.message_generator import MessageGenerator as Generator
 
 
 BLOCK_SIZE = 2 ** 14

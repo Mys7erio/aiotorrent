@@ -2,9 +2,9 @@ import asyncio
 import hashlib
 from pathlib import Path
 
-from piece import Piece
-from core.file_utils import File, FileTree
-from core.peers_manager import PeersManager
+from aiotorrent.piece import Piece
+from aiotorrent.core.file_utils import File, FileTree
+from aiotorrent.core.peers_manager import PeersManager
 
 
 BLOCK_SIZE = 2 ** 14

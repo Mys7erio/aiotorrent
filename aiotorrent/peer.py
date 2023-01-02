@@ -1,9 +1,9 @@
 import asyncio
 from bitstring import BitArray
 
-from core.response_handler import PeerResponseHandler as Handler
-from core.response_parser import PeerResponseParser as Parser
-from core.message_generator import MessageGenerator as Generator
+from aiotorrent.core.response_handler import PeerResponseHandler as Handler
+from aiotorrent.core.response_parser import PeerResponseParser as Parser
+from aiotorrent.core.message_generator import MessageGenerator as Generator
 
 
 class Peer:

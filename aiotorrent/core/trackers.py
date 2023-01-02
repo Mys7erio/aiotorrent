@@ -2,8 +2,8 @@ import socket
 from struct import unpack
 from ipaddress import IPv4Address
 
-from core.trackerbase import TrackerBaseClass
-from core.util import chunk
+from aiotorrent.core.trackerbase import TrackerBaseClass
+from aiotorrent.core.util import chunk
 
 
 

@@ -1,7 +1,7 @@
 from struct import unpack
 from bitstring import BitArray
 
-from core.util import Block
+from aiotorrent.core.util import Block
 
 
 class PeerResponseHandler:

@@ -3,11 +3,11 @@ import bencode
 import hashlib
 import platform
 
-from peer import Peer
-from core.util import chunk, PieceWriter
-from core.file_utils import FileTree
-from tracker_factory import TrackerFactory
-from downloader import FilesDownloadManager
+from aiotorrent.peer import Peer
+from aiotorrent.core.util import chunk, PieceWriter
+from aiotorrent.core.file_utils import FileTree
+from aiotorrent.tracker_factory import TrackerFactory
+from aiotorrent.downloader import FilesDownloadManager
 
 
 # Asyncio throws runtime error if the platform is windows

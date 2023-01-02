@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from core.trackers import UDPTracker, HTTPTracker, WSSTracker
+from aiotorrent.core.trackers import UDPTracker, HTTPTracker, WSSTracker
 
 
 class TrackerFactory:
