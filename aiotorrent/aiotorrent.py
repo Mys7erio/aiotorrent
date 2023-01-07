@@ -163,7 +163,7 @@ class Torrent:
 			from starlette.routing import Route
 			import uvicorn
 		except (ImportError, ModuleNotFoundError):
-			raise ModuleNotFoundError("Streaming dependencies not found\nInstall using: pip install aiotorrent[stream-support]")
+			raise ModuleNotFoundError("Streaming dependencies not found")
 
 		async def homepage(request):
 			return StreamingResponse(
