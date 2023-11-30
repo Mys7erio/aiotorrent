@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+import sys
 import asyncio
 from datetime import datetime as dt
 
@@ -8,7 +9,13 @@ from aiotorrent import Torrent
 
 async def main():
 	print("*"*64)
-	torrent = Torrent(r'aiotorrent\utils\big-buck-bunny.torrent')
+	try:
+		torrent_file = sys.argv[1]
+	except:
+		print("[x] No torrent file supplied")
+		sys.exit(1)
+
+	torrent = Torrent(torrent_file)
 	sub, video, poster = torrent.files
 
 	start = dt.now()
@@ -16,8 +23,8 @@ async def main():
 
 	await torrent.init()
 	await torrent.download(sub)
-	await torrent.download(video)
 	await torrent.download(poster)
+	await torrent.download(video)
 
 	end = dt.now()
 	elapsed = end - start
@@ -33,5 +40,5 @@ async def stream_test():
 
 
 if __name__ == "__main__":
-	asyncio.run(stream_test())
+	asyncio.run(main())
 
