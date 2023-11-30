@@ -25,7 +25,7 @@ class Torrent:
 		torrent.close()
 
 		# dict_keys(['files', 'name', 'piece length', 'pieces'])
-		data = bencode.decode_torrent(bencoded_data)
+		data = bencode.bdecode(bencoded_data)
 
 		self.trackers = list()
 		self.peers = list()
@@ -51,12 +51,13 @@ class Torrent:
 			size = data['info']['length']
 
 		# re-encode info to -> bencode and then apply sha-1 to it
-		raw_info_hash = bencode.encode_torrent(data['info'])
+		raw_info_hash = bencode.bencode(data['info'])
 		info_hash = hashlib.sha1(raw_info_hash).digest()
 
 		# get pieces and convert it from hexadecimal (string) to bytes object
+		# breakpoint()
 		raw_pieces = data['info']['pieces']
-		raw_pieces = bytes.fromhex(raw_pieces)
+		# raw_pieces = bytes.fromhex(raw_pieces)
 
 		# for every 20 byte in raw_pieces -> str, map index:piece (int:str) to pieces
 		for index, piece in enumerate(chunk(raw_pieces, 20)):
