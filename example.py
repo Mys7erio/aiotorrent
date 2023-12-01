@@ -33,12 +33,12 @@ async def main():
 
 
 async def stream_test():
-	torrent = Torrent(r'aiotorrent\utils\big-buck-bunny.torrent')
+	torrent = Torrent(r'utils\big-buck-bunny.torrent')
 	sub, video, poster = torrent.files
 	await torrent.init()
 	await torrent.stream(video)
 
 
 if __name__ == "__main__":
-	asyncio.run(main())
+	asyncio.run(stream_test())
 
