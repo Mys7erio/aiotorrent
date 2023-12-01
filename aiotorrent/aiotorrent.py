@@ -182,8 +182,10 @@ class Torrent:
 
 
 
-if __name__ == '__main__':
-	torrent = Torrent('pytorrent/bbb.torrent')
-	print(torrent.announce)
-	print(torrent.trackers)
-	print(torrent.udp_trackers)
+# if __name__ == '__main__':
+
+	# torrent = Torrent("../utils/big-buck-bunny.torrent")
+
+	# async def main():
+	# 	await torrent.init()
+	# 	await torrent.download()

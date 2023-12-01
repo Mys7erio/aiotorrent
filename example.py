@@ -4,7 +4,7 @@ import sys
 import asyncio
 from datetime import datetime as dt
 
-from aiotorrent import Torrent
+from aiotorrent.aiotorrent import Torrent
 
 
 async def main():
