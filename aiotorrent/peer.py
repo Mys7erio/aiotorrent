@@ -7,11 +7,12 @@ from aiotorrent.core.message_generator import MessageGenerator as Generator
 
 
 class Peer:
-	def __init__(self, address, torrent_info):
+	def __init__(self, address, torrent_info, priority = 10):
 		self.address = address
 		self.torrent_info = torrent_info
 
 		self.active = False
+		self.priority = priority
 		# self.busy = False
 
 		self.choking_me = True
@@ -26,6 +27,10 @@ class Peer:
 
 	def __repr__(self):
 		return f"Peer({self.address})"
+	
+
+	def __lt__(self, other):
+		return self.priority < other.priority
 
 
 	async def connect(self):

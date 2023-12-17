@@ -23,7 +23,7 @@ async def main():
 
 	await torrent.init()
 	await torrent.download(sub)
-	await torrent.download(poster)
+	# await torrent.download(poster)
 	await torrent.download(video)
 
 	end = dt.now()
@@ -40,5 +40,5 @@ async def stream_test():
 
 
 if __name__ == "__main__":
-	asyncio.run(stream_test())
+	asyncio.run(main())
 

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 
 from aiotorrent.core.util import Block
 from aiotorrent.core.response_parser import PeerResponseParser as Parser
@@ -11,38 +12,38 @@ BLOCKS_PER_CYCLE = 8
 
 
 class Piece:
-	def __init__(self, piece_num: int, piece_info: dict[str, int], peers_manager: 'PeersManager'):
+	def __init__(self, num: int, priority: int, piece_info: dict[str, int]):
 		"""
-		piece_num: int
+		num: int
 			Zero based piece index to be fetched from peers
 
 		piece_info: dict
 			dictionary containing information regarding pieces
 
-		peers_manager: PeersManager
+		peers_man: PeersManager
 			Object of PeersManager
 		"""
 		self.data = bytes()
 		self.blocks = dict()
-		self.piece_num = piece_num
-		self.peers_manager = peers_manager
+		self.num = num
+		self.priority = priority
 
 		self._is_last_piece = False
 		self.total_blocks = piece_info['total_blocks']
 		self.piece_size = self.total_blocks * BLOCK_SIZE
 
-		# If piece_num matches the num of total pieces then it's the last piece.
-		if piece_num == piece_info['total_pieces']:
+		# If num matches the num of total pieces then it's the last piece.
+		if self.num == piece_info['total_pieces']:
 			self._is_last_piece = True
 			self.total_blocks, self._last_offset = divmod(piece_info['last_piece'], BLOCK_SIZE)
 			self.piece_size = (self.total_blocks * BLOCK_SIZE) + self._last_offset
 
 
 	def __repr__(self):
-		return (f"Piece #{self.piece_num}")
+		return (f"Piece #{self.num}")
 
 
-	async def fetch_blocks(self, block_offsets: list[int], peer: 'Peer') -> list[Block]:
+	async def fetch_blocks(self, block_offsets: list[int], peer) -> list[Block]:
 		"""
 		This function fetches a block from a peer. It returns
 		either an Block object or a None Object.
@@ -56,15 +57,15 @@ class Piece:
 
 		for offset in block_offsets:
 			block_num = int(offset / BLOCK_SIZE)
-			# print(f"Requesting Block #{self.piece_num}-{block_num} from {peer}")
-			request_message = Generator.gen_request(self.piece_num, offset)
+			# print(f"Requesting Block #{self.num}-{block_num} from {peer}")
+			request_message = Generator.gen_request(self.num, offset)
 
 			# Last block of last piece will be requested with second last block.
-			is_last_block = True if block_num == (self.total_blocks-1) else False
+			is_last_block = True if block_num == (self.total_blocks - 1) else False
 
 			if self._is_last_piece and is_last_block:
 				request_message = Generator.gen_request(
-					self.piece_num,
+					self.num,
 					offset,
 					BLOCK_SIZE=(BLOCK_SIZE + self._last_offset)
 				)
@@ -76,7 +77,7 @@ class Piece:
 		# If peer sends empty block, update the piece_info of peer
 		# by setting it to false and raise IOError
 		if not response:
-			peer.update_piece_info(self.piece_num, False)
+			peer.update_piece_info(self.num, False)
 			raise IOError(f"{peer} Sent Empty Blocks")
 
 		try:
@@ -105,10 +106,26 @@ class Piece:
 				block_offset = block_num * BLOCK_SIZE
 				blocks.add(block_offset)
 		return blocks
+	
+
+	def clear_data(self):
+		self.blocks = []
+		self.data = bytes()
+	
+
+	@staticmethod
+	def is_valid(piece, piece_hashmap):
+		piece_hash = hashlib.sha1(piece.data).digest()
+
+		if piece_hash != piece_hashmap[piece.num]:
+			print(f"Piece Hash Does Not Match for {piece}")
+			return False
+			
+		return True
 
 
-	async def download(self) -> 'Piece':
-		peer = await self.peers_manager.dispatch()
+	async def download(self, peers_man) -> 'Piece':
+		priority, peer = await peers_man.get()
 
 		while not self.is_piece_complete():
 			task_list = list()
@@ -129,11 +146,9 @@ class Piece:
 			try:
 				results = await asyncio.gather(*task_list)
 			except (BrokenPipeError, IOError):
-				# Bug Fixed: Losing peers when BrokenPipeError or IOError exceptions occured.
-				# Swap peer for a different peer by requesting a new peer first.
-				current_peer = peer
-				peer = await self.peers_manager.dispatch()
-				await self.peers_manager.retrieve(current_peer)
+				# If BrokenPipe or IOError recieved then we need to reduce the peers priority
+				await peers_man.put((priority + 1, peer))
+				priority, peer = await peers_man.get()
 				continue
 
 			# Remove NoneType objects and merge inner lists to outerlists
@@ -149,5 +164,5 @@ class Piece:
 		for block_num in range(self.total_blocks):
 			self.data += self.blocks[block_num].data
 
-		await self.peers_manager.retrieve(peer)
+		await peers_man.put((priority - 1, peer))
 		return self
