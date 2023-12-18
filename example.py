@@ -23,7 +23,7 @@ async def main():
 
 	await torrent.init()
 	await torrent.download(sub)
-	await torrent.download(poster)
+	# await torrent.download(poster)
 	await torrent.download(video)
 
 	end = dt.now()

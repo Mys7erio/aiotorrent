@@ -55,9 +55,7 @@ class Torrent:
 		info_hash = hashlib.sha1(raw_info_hash).digest()
 
 		# get pieces and convert it from hexadecimal (string) to bytes object
-		# breakpoint()
 		raw_pieces = data['info']['pieces']
-		# raw_pieces = bytes.fromhex(raw_pieces)
 
 		# for every 20 byte in raw_pieces -> str, map index:piece (int:str) to pieces
 		for index, piece in enumerate(chunk(raw_pieces, 20)):
@@ -180,12 +178,3 @@ class Torrent:
 		server = uvicorn.Server(config)
 		await server.serve()
 
-
-
-# if __name__ == '__main__':
-
-	# torrent = Torrent("../utils/big-buck-bunny.torrent")
-
-	# async def main():
-	# 	await torrent.init()
-	# 	await torrent.download()

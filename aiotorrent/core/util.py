@@ -27,14 +27,24 @@ class PieceWriter:
 
 	def __enter__(self):
 		filepath = f"{self.directory}/{self.file.name}"
-		self.target_file = open(filepath, 'ab')
+		self.target_file = open(filepath, 'wb')
 		return self
 
 
 	def write(self, piece):
 		# Zero based index of piece within the file
-		piece_index = piece.piece_num - self.file.start_piece
-		offset = piece_index * piece.piece_size
+		piece_index = piece.num - self.file.start_piece
+
+		# Calculate offset of piece within the file
+		# Reduce file.start_byte from offset in case the file does not start at offset 0 of the piece.
+		# In other words, the piece has parts of more than one file.
+		offset = (piece_index * piece.piece_size) - self.file.start_byte
+
+		# A negative offset means that this piece contained data for other files
+		# Reset offset to 0 in case of a negative offset
+		if offset < 0: offset = 0
+
+		# Move the file pointer to the correct offset and write the piece data
 		self.target_file.seek(offset)
 		self.target_file.write(piece.data)
 		print(f"Wrote {piece} to {self.file.name}")
@@ -58,10 +68,3 @@ def chunk(string, size):
 		yield string[:size]
 		string = string[size:]
 
-
-	
-
-if __name__ == "__main__":
-	a = 'abcabcabcabcabcabcabcabcabcabc'
-	for i in chunk(a, 7):
-		print(i)
