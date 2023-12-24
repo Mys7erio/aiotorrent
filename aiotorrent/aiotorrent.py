@@ -1,6 +1,7 @@
 import asyncio
 import bencode
 import hashlib
+import logging
 import platform
 
 from aiotorrent.peer import Peer
@@ -16,6 +17,8 @@ from aiotorrent.downloader import FilesDownloadManager
 if platform.system() == 'Windows':
 	asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class Torrent:
@@ -83,8 +86,9 @@ class Torrent:
 					self.torrent_info['trackers'].append(tracker)
 
 		self.files = FileTree(self.torrent_info)
-		[print(file) for file in self.torrent_info['files']]
-		print("*"*64)
+
+		for file in self.files:
+			logger.info(f"File: {file}")
 
 
 	def _contact_trackers(self):
@@ -93,7 +97,7 @@ class Torrent:
 			self.trackers.append(
 				TrackerFactory(tracker, self.torrent_info)
 				)
-		print(f"Got {len(self.torrent_info['trackers'])} trackers for this torrent")
+		logger.info(f"Got {len(self.torrent_info['trackers'])} trackers for this torrent")
 
 
 
@@ -108,12 +112,12 @@ class Torrent:
 					# create and add peers object to self
 					self.peers.append(Peer(peer, self.torrent_info))
 
-		print(f"Got {len(self.torrent_info['peers'])} Peers for this torrent")
+		logger.info(f"Got {len(self.torrent_info['peers'])} Peers for this torrent")
 
 
 	def show_files(self):
 		for file in self.files:
-			print(f"File: {file}")
+			logger.info(f"File: {file}")
 
 
 	async def init(self):
@@ -134,8 +138,8 @@ class Torrent:
 		# Info
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		active_trackers = [tracker for tracker in self.trackers if tracker.active]
-		print(f"{len(active_peers)} peers active")
-		print(f"{len(active_trackers)} trackers active")
+		logger.info(f"{len(active_peers)} peers active")
+		logger.info(f"{len(active_trackers)} trackers active")
 
 
 	async def download(self, file):

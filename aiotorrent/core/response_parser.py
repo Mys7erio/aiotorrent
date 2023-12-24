@@ -1,5 +1,10 @@
+import logging
 from struct import unpack
 from struct import error as UnpackError
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class PeerResponseParser:
@@ -19,8 +24,7 @@ class PeerResponseParser:
 		self.artifacts = dict()
 
 
-	def parse(self, _debug=False):
-		self._debug = _debug
+	def parse(self):
 
 		while self.response:
 			try:
@@ -39,16 +43,16 @@ class PeerResponseParser:
 
 				# if msg id not in message index, clear response
 				if self.message_id not in self.messages:
-					print(f"{self.message_id=}, {self.message_len=}, {self.response[:16]}")
+					logger.warning(f"{self.message_id=}, {self.message_len=}, {self.response[:16]}")
 					self.response = bytes()
 
 				# finally parse the blob of response
-				if _debug: print(f"{self.message_len=}, {self.message_id=}, {self.response[:16]=}")
+				logger.debug(f"{self.message_len=}, {self.message_id=}, {self.response[:16]=}")
 				self.messages[self.message_id]()
 
 			# In case of general exception, clear the response
 			except Exception as E:
-				print(f"Parser: {E}")
+				logger.warning(f"Parser: {E}")
 				self.response = bytes()
 			
 		return self.artifacts

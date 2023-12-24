@@ -1,10 +1,14 @@
 import socket
+import logging
 from struct import unpack
 from ipaddress import IPv4Address
 
 from aiotorrent.core.trackerbase import TrackerBaseClass
 from aiotorrent.core.util import chunk
 
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class UDPTracker(TrackerBaseClass):
@@ -24,9 +28,9 @@ class UDPTracker(TrackerBaseClass):
 			self.active = True
 
 		except socket.gaierror:
-			print(f"GAIError {self}")
+			logger.info(f"GAIError {self}")
 		except socket.timeout:
-			print(f"Timeout {self}")
+			logger.info(f"Timeout {self}")
 
 
 	def get_peers(self):
@@ -79,7 +83,6 @@ class UDPTracker(TrackerBaseClass):
 			# convert ip from decimal to dotted format
 			ip = IPv4Address(ip).compressed
 			ip_addresses.append((ip, port))
-			# print('fucceff', (ip, port))
 
 		announce_response = {
 			'action': action,
@@ -90,7 +93,7 @@ class UDPTracker(TrackerBaseClass):
 			'ip_addresses': ip_addresses
 		}
 
-		print(f"Active {self}")
+		logger.info(f"Active {self}")
 		return announce_response
 
 
@@ -98,7 +101,7 @@ class UDPTracker(TrackerBaseClass):
 class HTTPTracker(TrackerBaseClass):
 	def __init__(self, *args):
 		self.active = False
-		print(f"	http object skipped...")
+		logger.debug(f"	http object skipped...")
 
 
 
@@ -110,14 +113,9 @@ class HTTPTracker(TrackerBaseClass):
 class WSSTracker(TrackerBaseClass):
 	def __init__(self, *args):
 		self.active = False
-		print(f"	wss object skipped")
+		logger.debug(f"	wss object skipped")
 
 
 	def get_peers(self):
 		return []
 
-
-
-
-if __name__ == "__main__":
-	breakpoint()

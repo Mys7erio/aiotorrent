@@ -55,7 +55,7 @@ file0, file1, file2 = torrent.files
 
 ### Downloading & Streaming
 ---------------------------
-Files can be accessed from the `files` attribute of the torrent class which stores all the `File` objects as a list.
+Files can be accessed from the `files` attribute of the torrent class which stores all the `File` objects in a list.
 To download a file, you can call the `download()` coroutine and pass in a `File` object:
 ```
 # To download file2
@@ -79,3 +79,7 @@ _The above methods can take additional parameters to customize the behaviour of 
 - Test compatiability on older versions of Python.
 - Add documentation for all the classes in the library.
 - Add support for HTTP trackers (And later,  WSS trackers).
+- ~~Return downloaded pieces as soon as they are downloaded (replace batch downloading approach)~~
+- ~~Replace print statements with logging.~~
+- Update the Torrent class to make the API more modular.
+- Implement functionality to get download status in the Torrent class.

@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import logging
 
 from aiotorrent.core.util import Block
 from aiotorrent.core.response_parser import PeerResponseParser as Parser
@@ -9,6 +10,10 @@ from aiotorrent.core.message_generator import MessageGenerator as Generator
 
 BLOCK_SIZE = 2 ** 14
 BLOCKS_PER_CYCLE = 8
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class Piece:
@@ -57,7 +62,7 @@ class Piece:
 
 		for offset in block_offsets:
 			block_num = int(offset / BLOCK_SIZE)
-			# print(f"Requesting Block #{self.num}-{block_num} from {peer}")
+			logger.debug(f"Requesting Block #{self.num}-{block_num} from {peer}")
 			request_message = Generator.gen_request(self.num, offset)
 
 			# Last block of last piece will be requested with second last block.
@@ -83,10 +88,13 @@ class Piece:
 		try:
 			artifacts = Parser(response).parse()
 			blocks = await Handler(artifacts, Peer=peer).handle()
-			# [print(f"Got {block} from {peer}") for block in blocks]
+			for block in blocks:
+				logger.debug(f"Got {block} from {peer}")
+
 			return blocks
+		
 		except TypeError as E:
-			print(f"Requesting Blocks for {self} from {peer} Returned None")
+			logging.info(f"Requesting Blocks for {self} from {peer} Returned None")
 			return None
 
 
@@ -118,7 +126,7 @@ class Piece:
 		piece_hash = hashlib.sha1(piece.data).digest()
 
 		if piece_hash != piece_hashmap[piece.num]:
-			print(f"Piece Hash Does Not Match for {piece}")
+			logging.warning(f"Piece Hash Does Not Match for {piece}")
 			return False
 			
 		return True
@@ -131,8 +139,8 @@ class Piece:
 			task_list = list()
 			block_offsets = self.gen_offsets()
 
-			# If len(block_offsets) is less than BLOCKS_PER_CYCLE, all blocks
-			# can be downloaded in a single cycle.
+			# If number of block offsets to be downloaded is less than BLOCKS_PER_CYCLE,
+			# all blocks can be downloaded in a single cycle.
 			if len(block_offsets) >= BLOCKS_PER_CYCLE:
 				offsets = {block_offsets.pop() for _ in range(BLOCKS_PER_CYCLE)}
 				block_offsets.difference_update(offsets)
