@@ -1,7 +1,11 @@
 from pathlib import Path
+import logging
 
 
 BLOCK_SIZE = 2 ** 14
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class Block:
@@ -47,7 +51,7 @@ class PieceWriter:
 		# Move the file pointer to the correct offset and write the piece data
 		self.target_file.seek(offset)
 		self.target_file.write(piece.data)
-		print(f"Wrote {piece} to {self.file.name}")
+		logger.info(f"Wrote {piece} to {self.file.name}")
 
 
 	def __exit__(self, exc_type, exc_value, exc_traceback):

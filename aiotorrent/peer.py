@@ -1,9 +1,14 @@
 import asyncio
+import logging
 from bitstring import BitArray
 
 from aiotorrent.core.response_handler import PeerResponseHandler as Handler
 from aiotorrent.core.response_parser import PeerResponseParser as Parser
 from aiotorrent.core.message_generator import MessageGenerator as Generator
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class Peer:
@@ -40,7 +45,7 @@ class Peer:
 			connection = asyncio.open_connection(ip, port)
 			self.reader, self.writer = await asyncio.wait_for(connection, timeout=3)
 			self.active = True
-			print(f"Opened Connection to {self}")
+			logger.debug(f"Opened Connection to {self}")
 
 		# ConnectionRefusedError: [WinError 1225] The remote computer refused the network connection
 		# ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
@@ -57,7 +62,7 @@ class Peer:
 			await self.writer.drain()
 			self.writer.close()
 			await self.writer.wait_closed()
-		print(f"{self} {message} Closed Connnection")
+		logger.debug(f"{self} {message} Closed Connnection")
 
 
 	async def handshake(self):
@@ -80,7 +85,7 @@ class Peer:
 			await Handler(artifacts, Peer=self).handle()
 
 
-	async def send_message(self, message, timeout=3, _debug=False):
+	async def send_message(self, message, timeout=3):
 		# Raise error if send_message() is called but peer is inactive
 		if not self.active:
 			raise BrokenPipeError(f"Connection to {self} has been closed")
@@ -93,7 +98,7 @@ class Peer:
 				response = await asyncio.wait_for(self.reader.read(1024), timeout=timeout)
 				response_buffer += response
 
-				if _debug: print(f"{self}, {response=}")
+				logger.debug(f"{self}, {response=}")
 				if len(response) <= 0: EMPTY_RESPONSE_THRESHOLD -= 1
 				if EMPTY_RESPONSE_THRESHOLD < 0:
 					await self.disconnect(f"Empty Response Threshold Exceeded!")

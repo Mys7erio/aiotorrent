@@ -1,13 +1,15 @@
 import asyncio
-import hashlib
+import logging
 from pathlib import Path
 
 from aiotorrent.piece import Piece
 from aiotorrent.core.file_utils import File, FileTree
-from aiotorrent.core.peers_manager import PeersManager
 
 
 BLOCK_SIZE = 2 ** 14
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class FilesDownloadManager:
@@ -47,7 +49,8 @@ class FilesDownloadManager:
 		for peer in active_peers:
 			self.peers_man.put_nowait((peer_def, peer))
 
-		[print(f"{key}:{val}") for key, val in piece_info.items()]
+		for key, value in piece_info.items():
+			logger.info(f"{key}:{value}")
 
 		# Queue for storing pieces for a file
 		self.file_pieces = asyncio.PriorityQueue()
@@ -93,6 +96,6 @@ class FilesDownloadManager:
 
 			yield piece
 
-		print(f"File {file} downloaded")
+		logger.info(f"File {file} downloaded")
 
 

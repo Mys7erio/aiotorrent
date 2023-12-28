@@ -1,7 +1,12 @@
+import logging
 from struct import unpack
 from bitstring import BitArray
 
 from aiotorrent.core.util import Block
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class PeerResponseHandler:
@@ -9,8 +14,12 @@ class PeerResponseHandler:
 		self.artifacts = artifacts
 		self.Peer = Peer
 
-	async def handle(self, _debug=False):
-		if _debug: [print(key, len(value)) for key, value in self.artifacts.items()]
+
+	async def handle(self):
+
+		if logger.isEnabledFor(logging.DEBUG):
+			for key, value in self.artifacts.items():
+				logger.debug(key, value)
 
 		while self.artifacts:
 			if "keep_alive" in self.artifacts: self.handle_keep_alive() 
@@ -26,7 +35,7 @@ class PeerResponseHandler:
 
 
 	def handle_keep_alive(self):
-		print(f'Keep-Alive from {self.Peer}')
+		logger.debug(f'Keep-Alive from {self.Peer}')
 		self.artifacts.pop('keep_alive')
 
 
@@ -38,7 +47,7 @@ class PeerResponseHandler:
 	def handle_unchoke(self):
 		self.Peer.choking_me = False
 		self.Peer.am_interested = True
-		print(f"Unchoke from {self.Peer}")
+		logger.debug(f"Unchoke from {self.Peer}")
 		self.artifacts.pop('unchoke')
 
 
@@ -65,7 +74,7 @@ class PeerResponseHandler:
 		self.Peer.has_handshaked = True
 		self.Peer.handshake_response = handshake_response
 
-		print(f"Handshake from {self.Peer}")
+		logger.debug(f"Handshake from {self.Peer}")
 		self.artifacts.pop('handshake')
 
 
@@ -92,7 +101,7 @@ class PeerResponseHandler:
 		except KeyError:
 			...
 		finally:
-			print(f"Bitfield from {self.Peer}")
+			logger.debug(f"Bitfield from {self.Peer}")
 
 
 	def handle_piece(self):
@@ -108,21 +117,3 @@ class PeerResponseHandler:
 			
 		self.artifacts.pop('pieces')
 		return blocks
-
-
-
-if __name__ == "__main__":
-	import asyncio
-	artifacts = dict()
-	index = 0
-	offset = 376832
-	with open('utils/piece.txt', 'rb') as file:
-		data = file.read()
-
-	artifacts['piece'] = (index, offset, data)
-
-	async def f():
-		idontknow = await PeerResponseHandler(artifacts).handle()
-		print(idontknow)
-
-	asyncio.run(f())

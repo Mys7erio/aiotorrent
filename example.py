@@ -2,9 +2,21 @@
 
 import sys
 import asyncio
+import logging
 from datetime import datetime as dt
 
 from aiotorrent.aiotorrent import Torrent
+
+formatted_date = dt.now().strftime("%Y-%m-%d_%H-%M-%S")
+stream_handler = logging.StreamHandler()
+
+# Uncomment line number 14 and 18 to save logs to file
+# file_handler = logging.FileHandler(f"utils/logs/{formatted_date}.log")
+
+logging.basicConfig(level=logging.INFO, handlers=[
+	stream_handler,
+	# file_handler,
+])
 
 
 async def main():
@@ -29,7 +41,6 @@ async def main():
 	end = dt.now()
 	elapsed = end - start
 	print(f"Execution completed in: {elapsed}")
-	breakpoint()
 
 
 async def stream_test():

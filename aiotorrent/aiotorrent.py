@@ -1,6 +1,7 @@
 import asyncio
 import bencode
 import hashlib
+import logging
 import platform
 
 from aiotorrent.peer import Peer
@@ -16,6 +17,8 @@ from aiotorrent.downloader import FilesDownloadManager
 if platform.system() == 'Windows':
 	asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class Torrent:
@@ -83,42 +86,44 @@ class Torrent:
 					self.torrent_info['trackers'].append(tracker)
 
 		self.files = FileTree(self.torrent_info)
-		[print(file) for file in self.torrent_info['files']]
-		print("*"*64)
 
+		for file in self.files:
+			logger.info(f"File: {file}")
 
-	def _contact_trackers(self):
-		# Create tracker objects using Tracker Factory Class
-		for tracker in self.torrent_info['trackers']:
-			self.trackers.append(
-				TrackerFactory(tracker, self.torrent_info)
-				)
-		print(f"Got {len(self.torrent_info['trackers'])} trackers for this torrent")
+			
+	async def _contact_trackers(self):
+		task_list = list()
+
+		for tracker_addr in self.torrent_info['trackers']:
+			tracker = TrackerFactory(tracker_addr, self.torrent_info)
+			self.trackers.append(tracker)
+			task_list.append(asyncio.create_task(tracker.get_peers()))
+
+		await asyncio.gather(*task_list)
 
 
 
 	def _get_peers(self):
-		# Get peers address from each tracker and add them to
-		# peer list if not already there
+		# Get peers address from each tracker
 		for tracker in self.trackers:
-			for peer in tracker.get_peers():
+			for peer in tracker.peers:
 				if not peer in self.torrent_info['peers']:
 					# Add peer address to torrent info
 					self.torrent_info['peers'].append(peer)
 					# create and add peers object to self
 					self.peers.append(Peer(peer, self.torrent_info))
 
-		print(f"Got {len(self.torrent_info['peers'])} Peers for this torrent")
+		logger.info(f"Got {len(self.torrent_info['peers'])} Peers for this torrent")
 
 
 	def show_files(self):
 		for file in self.files:
-			print(f"File: {file}")
+			logger.info(f"File: {file}")
 
 
 	async def init(self):
 		# Contact Trackers and get peers
-		self._contact_trackers()
+		await self._contact_trackers()
 		self._get_peers()
 
 		# Use list comprehension to create and execute peer functions in parallel
@@ -134,8 +139,8 @@ class Torrent:
 		# Info
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		active_trackers = [tracker for tracker in self.trackers if tracker.active]
-		print(f"{len(active_peers)} peers active")
-		print(f"{len(active_trackers)} trackers active")
+		logger.info(f"{len(active_peers)} peers active")
+		logger.info(f"{len(active_trackers)} trackers active")
 
 
 	async def download(self, file):
