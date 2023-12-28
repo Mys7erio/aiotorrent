@@ -90,22 +90,23 @@ class Torrent:
 		for file in self.files:
 			logger.info(f"File: {file}")
 
+			
+	async def _contact_trackers(self):
+		task_list = list()
 
-	def _contact_trackers(self):
-		# Create tracker objects using Tracker Factory Class
-		for tracker in self.torrent_info['trackers']:
-			self.trackers.append(
-				TrackerFactory(tracker, self.torrent_info)
-				)
-		logger.info(f"Got {len(self.torrent_info['trackers'])} trackers for this torrent")
+		for tracker_addr in self.torrent_info['trackers']:
+			tracker = TrackerFactory(tracker_addr, self.torrent_info)
+			self.trackers.append(tracker)
+			task_list.append(asyncio.create_task(tracker.get_peers()))
+
+		await asyncio.gather(*task_list)
 
 
 
 	def _get_peers(self):
-		# Get peers address from each tracker and add them to
-		# peer list if not already there
+		# Get peers address from each tracker
 		for tracker in self.trackers:
-			for peer in tracker.get_peers():
+			for peer in tracker.peers:
 				if not peer in self.torrent_info['peers']:
 					# Add peer address to torrent info
 					self.torrent_info['peers'].append(peer)
@@ -122,7 +123,7 @@ class Torrent:
 
 	async def init(self):
 		# Contact Trackers and get peers
-		self._contact_trackers()
+		await self._contact_trackers()
 		self._get_peers()
 
 		# Use list comprehension to create and execute peer functions in parallel
