@@ -85,7 +85,7 @@ class FilesDownloadManager:
 			piece = await task
 
 			if not Piece.is_valid(piece, self.piece_hashmap):
-				self.file_pieces.put((1, piece.num))
+				self.file_pieces.put_nowait((1, piece.num))
 				continue
 
 			if file.start_piece == piece.num:

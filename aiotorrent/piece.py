@@ -155,8 +155,8 @@ class Piece:
 				results = await asyncio.gather(*task_list)
 			except (BrokenPipeError, IOError):
 				# If BrokenPipe or IOError recieved then we need to reduce the peers priority
-				await peers_man.put((priority + 1, peer))
 				priority, peer = await peers_man.get()
+				await peers_man.put((priority + 1, peer))
 				continue
 
 			# Remove NoneType objects and merge inner lists to outerlists
