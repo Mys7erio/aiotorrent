@@ -1,8 +1,10 @@
-from pathlib import Path
 import logging
+from pathlib import Path
 
 
 BLOCK_SIZE = 2 ** 14
+MIN_BLOCKS_PER_CYCLE = 8
+BLOCKS_PER_CYCLE = MIN_BLOCKS_PER_CYCLE
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())

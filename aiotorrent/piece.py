@@ -7,9 +7,7 @@ from aiotorrent.core.response_parser import PeerResponseParser as Parser
 from aiotorrent.core.response_handler import PeerResponseHandler as Handler
 from aiotorrent.core.message_generator import MessageGenerator as Generator
 
-
-BLOCK_SIZE = 2 ** 14
-BLOCKS_PER_CYCLE = 8
+from aiotorrent.core.util import BLOCK_SIZE, BLOCKS_PER_CYCLE, MIN_BLOCKS_PER_CYCLE
 
 
 logger = logging.getLogger(__name__)
@@ -69,11 +67,7 @@ class Piece:
 			is_last_block = True if block_num == (self.total_blocks - 1) else False
 
 			if self._is_last_piece and is_last_block:
-				request_message = Generator.gen_request(
-					self.num,
-					offset,
-					BLOCK_SIZE=(BLOCK_SIZE + self._last_offset)
-				)
+				request_message = Generator.gen_request(self.num, offset, BLOCK_SIZE + self._last_offset)
 
 			requests += request_message
 
@@ -95,6 +89,8 @@ class Piece:
 		
 		except TypeError as E:
 			logging.info(f"Requesting Blocks for {self} from {peer} Returned None")
+			logging.warning(E)
+			self.adjust_blocks_per_cycle(-1)
 			return None
 
 
@@ -114,12 +110,7 @@ class Piece:
 				block_offset = block_num * BLOCK_SIZE
 				blocks.add(block_offset)
 		return blocks
-	
 
-	def clear_data(self):
-		self.blocks = []
-		self.data = bytes()
-	
 
 	@staticmethod
 	def is_valid(piece, piece_hashmap):
@@ -130,6 +121,20 @@ class Piece:
 			return False
 			
 		return True
+
+
+	def adjust_blocks_per_cycle(self, value: int = 1):
+		"""
+		Increments / Decrements BLOCKS_PER_CYCLE by `value`
+		"""
+		global BLOCKS_PER_CYCLE
+		BLOCKS_PER_CYCLE += value
+
+		# Ensure BLOCKS_PER_CYCLE is always greater than MIN_BLOCKS_PER_CYCLE
+		BLOCKS_PER_CYCLE = max(BLOCKS_PER_CYCLE, MIN_BLOCKS_PER_CYCLE)
+
+		# Ensure BLOCKS_PER_CYCLE is always less than total_blocks in a piece
+		BLOCKS_PER_CYCLE = min(BLOCKS_PER_CYCLE, self.total_blocks)
 
 
 	async def download(self, peers_man) -> 'Piece':
@@ -152,11 +157,15 @@ class Piece:
 			task_list.append(task)
 
 			try:
+				# Get results and increment BLOCKS_PER_CYCLE if successful
 				results = await asyncio.gather(*task_list)
+				self.adjust_blocks_per_cycle(1)
+
 			except (BrokenPipeError, IOError):
 				# If BrokenPipe or IOError recieved then we need to reduce the peers priority
+				current_priority, current_peer = priority, peer
 				priority, peer = await peers_man.get()
-				await peers_man.put((priority + 1, peer))
+				await peers_man.put((current_priority + 1, current_peer))
 				continue
 
 			# Remove NoneType objects and merge inner lists to outerlists

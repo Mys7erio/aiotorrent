@@ -34,9 +34,8 @@ async def main():
 	print(f"Started Execution at: {start}")
 
 	await torrent.init()
-	# await torrent.download(sub)
-	# await torrent.download(poster)
-	await torrent.download(video)
+	for file in torrent.files:
+		await torrent.download(file)
 
 	end = dt.now()
 	elapsed = end - start

@@ -3,10 +3,8 @@ import logging
 from pathlib import Path
 
 from aiotorrent.piece import Piece
+from aiotorrent.core.util import BLOCK_SIZE
 from aiotorrent.core.file_utils import File, FileTree
-
-
-BLOCK_SIZE = 2 ** 14
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
