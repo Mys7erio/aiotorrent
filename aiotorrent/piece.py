@@ -13,7 +13,9 @@ from aiotorrent.core.util import BLOCK_SIZE, BLOCKS_PER_CYCLE, MIN_BLOCKS_PER_CY
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
-
+#TODO: Update class paramater documentation
+#TODO: Rename peers_man to peer_queue
+#TODO: Use consistent naming convention for other variables
 class Piece:
 	def __init__(self, num: int, priority: int, piece_info: dict[str, int]):
 		"""
@@ -114,6 +116,7 @@ class Piece:
 
 	@staticmethod
 	def is_valid(piece, piece_hashmap):
+		#TODO: make this an instance method so that every piece can validate it's own data
 		piece_hash = hashlib.sha1(piece.data).digest()
 
 		if piece_hash != piece_hashmap[piece.num]:
@@ -137,7 +140,7 @@ class Piece:
 		BLOCKS_PER_CYCLE = min(BLOCKS_PER_CYCLE, self.total_blocks)
 
 
-	async def download(self, peers_man) -> 'Piece':
+	async def download(self, peers_man, _semaphore = None) -> 'Piece':
 		priority, peer = await peers_man.get()
 
 		while not self.is_piece_complete():
@@ -182,4 +185,6 @@ class Piece:
 			self.data += self.blocks[block_num].data
 
 		await peers_man.put((priority - 1, peer))
+		# Release semaphore so that the next task can begin
+		_semaphore.release()
 		return self

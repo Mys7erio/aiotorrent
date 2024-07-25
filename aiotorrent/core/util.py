@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import asyncio
 
 
 BLOCK_SIZE = 2 ** 14
@@ -74,3 +75,42 @@ def chunk(string, size):
 		yield string[:size]
 		string = string[size:]
 
+
+
+class SequentialPieceDispatcher:
+	MEMORY_LIMIT = 1024 * 1000  * 10 # 10MB
+	pieces_queue = asyncio.PriorityQueue()
+	_pieces_in_queue = 0
+	_file_piece_size = 0
+
+
+	def __init__(self, file, torrent_info) -> None:
+		self.current = file.start_piece
+		self.end = file.end_piece
+		self._file_piece_size = torrent_info['piece_len']
+
+
+	async def put(self, piece) -> None:
+		queue_size = self.pieces_queue.qsize() * self._file_piece_size
+		if queue_size > self.MEMORY_LIMIT:
+			raise MemoryError("Memory limit exceeded")
+		else:
+			await self.pieces_queue.put((piece.num, piece))
+			self._pieces_in_queue += 1
+
+
+	async def dispatch(self):
+		while not self.pieces_queue.empty():
+			priority, piece = await self.pieces_queue.get()
+			if piece.num != self.current:
+				self.pieces_queue.put_nowait((priority, piece))
+				break
+			else:
+				self.current += 1
+				yield piece
+
+
+	async def drain(self):
+		while not self.pieces_queue.empty():
+			_, piece = await self.pieces_queue.get()
+			yield piece

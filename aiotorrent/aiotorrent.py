@@ -124,7 +124,7 @@ class Torrent:
 	async def init(self):
 		# Contact Trackers and get peers
 		await self._contact_trackers()
-		self._get_peers()
+		self._get_peers() #TODO: Rename get_peers to add_peers
 
 		# Use list comprehension to create and execute peer functions in parallel
 		connections = [peer.connect() for peer in self.peers]
@@ -144,12 +144,13 @@ class Torrent:
 
 
 	async def download(self, file):
+		#TODO: Add a peer_list parameter with the default value of self.peers
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		fd_man = FilesDownloadManager(self.torrent_info, active_peers)
 		directory = self.torrent_info['name']
 
 		with PieceWriter(directory, file) as piece_writer:
-			async for piece in fd_man.get_file(file):
+			async for piece in fd_man.get_file_sequential(file, self.torrent_info):
 				piece_writer.write(piece)
 
 

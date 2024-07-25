@@ -98,7 +98,7 @@ class Peer:
 			if self.active:
 				logger.warning(f"Tried sending message to inactive {self}. Successfully re-established connection!")
 			else:
-				logger.warning(f"Tried sending message to inactive {self}. Failed to re-established connection!")
+				logger.warning(f"Tried sending message to inactive {self}. Failed to re-establish connection!")
 
 			# Now raise BrokenPipeError so that the caller of send_message() can handle it
 			raise BrokenPipeError(f"Tried sending message to inactive peer")
