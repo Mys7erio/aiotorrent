@@ -5,7 +5,9 @@ import asyncio
 import logging
 from datetime import datetime as dt
 
-from aiotorrent.aiotorrent import Torrent
+from aiotorrent import Torrent
+from aiotorrent import DownloadStrategy
+
 
 formatted_date = dt.now().strftime("%Y-%m-%d_%H-%M-%S")
 stream_handler = logging.StreamHandler()
@@ -35,7 +37,7 @@ async def main():
 
 	await torrent.init()
 	for file in torrent.files:
-		await torrent.download(file)
+		await torrent.download(file, strategy=DownloadStrategy.SEQUENTIAL)
 
 	end = dt.now()
 	elapsed = end - start

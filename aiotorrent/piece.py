@@ -186,5 +186,6 @@ class Piece:
 
 		await peers_man.put((priority - 1, peer))
 		# Release semaphore so that the next task can begin
-		_semaphore.release()
+		if _semaphore is not None:
+			_semaphore.release()
 		return self

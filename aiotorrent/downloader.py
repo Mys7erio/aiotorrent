@@ -94,9 +94,9 @@ class FilesDownloadManager:
 		logger.info(f"File {file} downloaded")
 
 
-	async def get_file_sequential(self, file: File, torrent_info) -> Piece:
+	async def get_file_sequential(self, file: File, piece_len) -> Piece:
 		task_list = []
-		dispatch_manager = SequentialPieceDispatcher(file, torrent_info)
+		dispatch_manager = SequentialPieceDispatcher(file, piece_len)
 
 		self.create_pieces_queue(file)
 		max_concurrent_pieces = 10

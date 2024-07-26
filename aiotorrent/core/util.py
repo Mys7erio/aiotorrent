@@ -1,11 +1,17 @@
-import logging
-from pathlib import Path
 import asyncio
+import logging
+from enum import Enum
+from pathlib import Path
 
 
 BLOCK_SIZE = 2 ** 14
 MIN_BLOCKS_PER_CYCLE = 8
 BLOCKS_PER_CYCLE = MIN_BLOCKS_PER_CYCLE
+
+class DownloadStrategy(Enum):
+	DEFAULT = 0
+	SEQUENTIAL = 10
+
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -84,10 +90,10 @@ class SequentialPieceDispatcher:
 	_file_piece_size = 0
 
 
-	def __init__(self, file, torrent_info) -> None:
+	def __init__(self, file, piece_len) -> None:
 		self.current = file.start_piece
 		self.end = file.end_piece
-		self._file_piece_size = torrent_info['piece_len']
+		self._file_piece_size = piece_len
 
 
 	async def put(self, piece) -> None:
