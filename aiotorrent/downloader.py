@@ -89,6 +89,7 @@ class FilesDownloadManager:
 			if file.end_piece == piece.num:
 				piece.data = piece.data[:file.end_byte]
 
+			file._set_bytes_written(file.get_bytes_written() + len(piece.data))
 			yield piece
 
 		logger.info(f"File {file} downloaded")
@@ -118,6 +119,7 @@ class FilesDownloadManager:
 					else:
 						task_list.remove(task)
 						piece = task.result()
+						file._set_bytes_downloaded(file.get_bytes_downloaded() + len(piece.data))
 						# yield piece
 	
 						if not Piece.is_valid(piece, self.piece_hashmap):
@@ -132,7 +134,9 @@ class FilesDownloadManager:
 							
 						await dispatch_manager.put(piece)
 						async for piece in dispatch_manager.dispatch():
+							file._set_bytes_written(file.get_bytes_written() + len(piece.data))
 							yield piece
 
 		async for piece in dispatch_manager.drain():
+			file._set_bytes_written(file.get_bytes_written() + len(piece.data))
 			yield piece

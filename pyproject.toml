@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "aiotorrent"
 # version is a calculated guess. Subsequent updates will follow the semantic versioning convention.
-version = "0.8.1"
+version = "0.8.2"
 description = "An ultra-lightweight torrent library written in pure Python."
 authors = ["Shakir <shakirali.sacube@gmail.com>"]
 readme = "README.md"

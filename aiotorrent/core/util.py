@@ -84,7 +84,7 @@ def chunk(string, size):
 
 
 class SequentialPieceDispatcher:
-	MEMORY_LIMIT = 1024 * 1000  * 10 # 10MB
+	MEMORY_LIMIT = 1024 * 1024  * 64 # 64MB
 	pieces_queue = asyncio.PriorityQueue()
 	_pieces_in_queue = 0
 	_file_piece_size = 0
