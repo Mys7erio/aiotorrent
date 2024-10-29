@@ -3,10 +3,9 @@ import logging
 from pathlib import Path
 
 from aiotorrent.piece import Piece
+from aiotorrent.core.util import BLOCK_SIZE
 from aiotorrent.core.file_utils import File, FileTree
-
-
-BLOCK_SIZE = 2 ** 14
+from aiotorrent.core.util import SequentialPieceDispatcher
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
@@ -45,19 +44,16 @@ class FilesDownloadManager:
 		self.file_tree = FileTree(torrent_info)
 
 		peer_def = 10   # Peer default priority
-		self.peers_man = asyncio.PriorityQueue()
+		self.peer_queue = asyncio.PriorityQueue()
 		for peer in active_peers:
-			self.peers_man.put_nowait((peer_def, peer))
-
-		for key, value in piece_info.items():
-			logger.info(f"{key}:{value}")
+			self.peer_queue.put_nowait((peer_def, peer))
 
 		# Queue for storing pieces for a file
 		self.file_pieces = asyncio.PriorityQueue()
 		
 
 
-	def init_downloader(self, file: File) -> None:
+	def create_pieces_queue(self, file: File) -> None:
 		piece_def = 3   # Default piece priority
 		for piece_num in range(file.start_piece, file.end_piece + 1):
 			self.file_pieces.put_nowait((piece_def, piece_num))
@@ -71,21 +67,20 @@ class FilesDownloadManager:
 
 
 	async def get_file(self, file: File) -> Piece:
-		self.init_downloader(file)
+		self.create_pieces_queue(file)
 		task_list = list()
 
 		while not self.file_downloaded():
 			prio_piece, num = await self.file_pieces.get()
-
 			piece = Piece(num, prio_piece, self.piece_info)
-			task = asyncio.create_task(piece.download(self.peers_man))
+			task = asyncio.create_task(piece.download(self.peer_queue))
 			task_list.append(task)
 
 		for task in asyncio.as_completed(task_list):
 			piece = await task
 
 			if not Piece.is_valid(piece, self.piece_hashmap):
-				self.file_pieces.put((1, piece.num))
+				self.file_pieces.put_nowait((1, piece.num))
 				continue
 
 			if file.start_piece == piece.num:
@@ -94,8 +89,54 @@ class FilesDownloadManager:
 			if file.end_piece == piece.num:
 				piece.data = piece.data[:file.end_byte]
 
+			file._set_bytes_written(file.get_bytes_written() + len(piece.data))
 			yield piece
 
 		logger.info(f"File {file} downloaded")
 
 
+	async def get_file_sequential(self, file: File, piece_len) -> Piece:
+		task_list = []
+		dispatch_manager = SequentialPieceDispatcher(file, piece_len)
+
+		self.create_pieces_queue(file)
+		max_concurrent_pieces = 10
+		sema = asyncio.Semaphore(max_concurrent_pieces)
+
+		while not self.file_downloaded():
+			async with sema:
+				await sema.acquire()
+				prio_piece, num = await self.file_pieces.get()
+				piece = Piece(num, prio_piece, self.piece_info)
+				# Passing semaphore so that piece can release it when it finishes fetching
+				# all the blocks for itself
+				task = asyncio.create_task(piece.download(self.peer_queue, _semaphore=sema))
+				task_list.append(task)
+
+				for task in task_list:
+					if not task.done():
+						break
+					else:
+						task_list.remove(task)
+						piece = task.result()
+						file._set_bytes_downloaded(file.get_bytes_downloaded() + len(piece.data))
+						# yield piece
+	
+						if not Piece.is_valid(piece, self.piece_hashmap):
+							self.file_pieces.put_nowait((1, piece.num))
+							continue
+
+						if file.start_piece == piece.num:
+							piece.data = piece.data[file.start_byte:]
+
+						if file.end_piece == piece.num:
+							piece.data = piece.data[:file.end_byte]
+							
+						await dispatch_manager.put(piece)
+						async for piece in dispatch_manager.dispatch():
+							file._set_bytes_written(file.get_bytes_written() + len(piece.data))
+							yield piece
+
+		async for piece in dispatch_manager.drain():
+			file._set_bytes_written(file.get_bytes_written() + len(piece.data))
+			yield piece

@@ -9,6 +9,7 @@ from aiotorrent.core.util import chunk, PieceWriter
 from aiotorrent.core.file_utils import FileTree
 from aiotorrent.tracker_factory import TrackerFactory
 from aiotorrent.downloader import FilesDownloadManager
+from aiotorrent.core.util import DownloadStrategy
 
 
 # Asyncio throws runtime error if the platform is windows
@@ -102,7 +103,6 @@ class Torrent:
 		await asyncio.gather(*task_list)
 
 
-
 	def _get_peers(self):
 		# Get peers address from each tracker
 		for tracker in self.trackers:
@@ -124,7 +124,7 @@ class Torrent:
 	async def init(self):
 		# Contact Trackers and get peers
 		await self._contact_trackers()
-		self._get_peers()
+		self._get_peers() #TODO: Rename get_peers to add_peers
 
 		# Use list comprehension to create and execute peer functions in parallel
 		connections = [peer.connect() for peer in self.peers]
@@ -143,20 +143,29 @@ class Torrent:
 		logger.info(f"{len(active_trackers)} trackers active")
 
 
-	async def download(self, file):
+	async def download(self, file, strategy=DownloadStrategy.DEFAULT):
+		#TODO: Add a peer_list parameter with the default value of self.peers
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		fd_man = FilesDownloadManager(self.torrent_info, active_peers)
 		directory = self.torrent_info['name']
+		logger.info(f"Using strategy {strategy} to download file {file}")
 
 		with PieceWriter(directory, file) as piece_writer:
-			async for piece in fd_man.get_file(file):
-				piece_writer.write(piece)
+			if strategy == DownloadStrategy.DEFAULT:
+				async for piece in fd_man.get_file(file):
+					piece_writer.write(piece)
+
+			elif strategy == DownloadStrategy.SEQUENTIAL:
+				piece_len = self.torrent_info['piece_len']
+				async for piece in fd_man.get_file_sequential(file, piece_len):
+					piece_writer.write(piece)
 
 
 	async def __generate_torrent_stream(self, file):
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
 		fd_man = FilesDownloadManager(self.torrent_info, active_peers)
-		async for piece in fd_man.get_file(file):
+		piece_len = self.torrent_info['piece_len']
+		async for piece in fd_man.get_file_sequential(file, piece_len):
 			yield piece.data
 
 

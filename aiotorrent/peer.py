@@ -87,6 +87,22 @@ class Peer:
 
 	async def send_message(self, message, timeout=3):
 		# Raise error if send_message() is called but peer is inactive
+		# If send_message was called and the current status of the peer is not active
+		# This means that this peer dropped the connection mid execution
+		# So, we will re-establish a connection and re-raise the exception
+		if not self.active:
+			await self.connect()
+			await self.handshake()
+			await self.intrested()
+
+			if self.active:
+				logger.warning(f"Tried sending message to inactive {self}. Successfully re-established connection!")
+			else:
+				logger.warning(f"Tried sending message to inactive {self}. Failed to re-establish connection!")
+
+			# Now raise BrokenPipeError so that the caller of send_message() can handle it
+			raise BrokenPipeError(f"Tried sending message to inactive peer")
+
 		if not self.active:
 			raise BrokenPipeError(f"Connection to {self} has been closed")
 			
@@ -124,5 +140,3 @@ class Peer:
 
 
 
-if __name__ == "__main__":
-	...
