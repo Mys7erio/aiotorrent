@@ -19,7 +19,8 @@ class PeerResponseHandler:
 
 		if logger.isEnabledFor(logging.DEBUG):
 			for key, value in self.artifacts.items():
-				logger.debug(f"{key}: {value[:32]}")
+				if isinstance(value, bytes):
+					logger.debug(f"{key}: {value[:32]}")
 
 		while self.artifacts:
 			if "keep_alive" in self.artifacts: self.handle_keep_alive() 

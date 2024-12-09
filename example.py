@@ -30,7 +30,7 @@ async def main():
 		sys.exit(1)
 
 	torrent = Torrent(torrent_file)
-	sub, video, poster = torrent.files
+	# sub, video, poster = torrent.files
 
 	start = dt.now()
 	print(f"Started Execution at: {start}")

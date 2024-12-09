@@ -1,9 +1,13 @@
 import asyncio
 import logging
 from random import randint
+from typing import Literal
+from bencode import bdecode
 from struct import pack, unpack
 from ipaddress import IPv4Address
-from urllib.parse import urlparse, ParseResult
+from socket import gaierror as GAIError
+from urllib.parse import urlparse, urlencode, ParseResult
+from http.client import HTTPConnection, HTTPSConnection
 
 from aiotorrent.core.util import chunk
 
@@ -32,40 +36,56 @@ class TrackerBaseClass:
 		self.announce_response: dict = {}
 
 
-	def gen_connect(self) -> bytes:
+	def gen_connect(self) -> dict:
 		connection_id = 0x41727101980
 		action = 0
 		transaction_id = randint(1, 65536)
 
-		message = pack(
-			'>QII',
-			connection_id,
-			action,
-			transaction_id,
-		)
+		connect_params = {
+			'connection_id': connection_id,
+			'action': action,
+			'transaction_id': transaction_id
+		}
 
-		return message
+		return connect_params
+
+	@staticmethod
+	def serialize_connect(format: Literal["bytes"] | Literal["url"], connect_params: dict) -> bytes | dict:
+		if	format == "bytes":
+			return pack(
+				'>QII',
+				connect_params['connection_id'],
+				connect_params['action'],
+				connect_params['transaction_id'],
+			)
+
+		else: return urlencode(connect_params)
 
 
-	def gen_announce(self, connection_id: int, transaction_id: int) -> bytes:
+
+	def gen_announce(self, connection_id: int = 0, transaction_id: int = 0) -> dict:
 		# Create a dictionary with all the properties of
 		# the UDP connect message
 
-		# Ignore redundant connection and transaction vairables being redclared
-		connection_id = connection_id				# connection_id, # 64 bit integer
-		action = 1									# 32 bit integer; announce
-		transaction_id = transaction_id				# 32 bit integer
-		info_hash = self.torrent_info['info_hash']	# 20 byte string
-		peer_id = b"ABCD" + b"X"*16					# 20 byte string; Should be the same and only change if the client restarts
-		downloaded = 0								# 64 bit integer
-		left = self.torrent_info['size']			# 64 bit integer
-		uploaded = 0								# 64 bit integer
-		event = 2									# 32 bit integer; started
-		ip_address = 0								# 32 bit integer; 0 is default
-		key = self.key								# 32 bit integer
-		num_want = -1								# 32 bit integer; -1 is default
-		port = 6887									# 16 bit integer; should be between 6881 & 6889
+		announce_params = {
+			'connection_id': connection_id,					# 64 bit integer
+			'action': 1,									# 32 bit integer; announce
+			'transaction_id': transaction_id,				# 32 bit integer
+			'info_hash': self.torrent_info['info_hash'],	# 20 byte string
+			'peer_id': b"ABCD" + b"X"*16,					# 20 byte string; Should be the same and only change if the client restarts
+			'downloaded': 0,								# 64 bit integer
+			'left': self.torrent_info['size'],				# 64 bit integer
+			'uploaded': 0,									# 64 bit integer
+			'event': 2,										# 32 bit integer; started
+			'ip_address': 0,								# 32 bit integer; 0 is default
+			'key': self.key,								# 32 bit integer
+			'num_want': 200,								# 32 bit integer; -1 is default
+			'port': 6887									# 16 bit integer; should be between 6881 & 6889
+		}
 
+		return announce_params
+
+	def serialize_announce(format: Literal["bytes"] | Literal["url"], announce_params: dict) -> bytes | dict:
 		# Pack the message before sending. Packing breakdown
 		# Q -> 64 bit integer
 		# I -> 32 bit integer
@@ -74,25 +94,26 @@ class TrackerBaseClass:
 		# i -> 32 bit unsigned integer
 		# H -> 16 bit integer
 
-		message = pack(
+		if format == "bytes":
+			return pack(
 			'>QII20s20sQQQIIIiH',
-			connection_id,
-			action,
-			transaction_id,
-			info_hash,
-			peer_id,
-			downloaded,
-			left,
-			uploaded,
-			event,
-			ip_address,
-			key,
-			num_want,
-			port
+			announce_params['connection_id'],
+			announce_params['action'],
+			announce_params['transaction_id'],
+			announce_params['info_hash'],
+			announce_params['peer_id'],
+			announce_params['downloaded'],
+			announce_params['left'],
+			announce_params['uploaded'],
+			announce_params['event'],
+			announce_params['ip_address'],
+			announce_params['key'],
+			announce_params['num_want'],
+			announce_params['port']
 		)
-
-		return message
 	
+		else: return urlencode(announce_params)
+
 
 	def parse_connect(self, response: bytes) -> dict[str, int]:
 		action, transaction_id, connection_id = unpack('>IIQ', response)
@@ -148,7 +169,7 @@ class UDPTracker(TrackerBaseClass):
 
 
 	def __repr__(self) -> str:
-		return f"UDPTracker({self.hostname})"
+		return f"UDPTracker({self.hostname}:{self.port})"
 
 
 	class UDPProtocolFactory(asyncio.DatagramProtocol):
@@ -162,7 +183,8 @@ class UDPTracker(TrackerBaseClass):
 		def connection_made(self, transport: asyncio.DatagramTransport) -> None:
 			self.transport = transport
 			# Send connection request when connected
-			connect_req = self.parent_obj.gen_connect()
+			connect_req_raw = self.parent_obj.gen_connect()
+			connect_req = UDPTracker.serialize_connect("bytes", connect_req_raw)
 			logger.info(f"{self.parent_obj} Sending connect request to {self.address}")
 			self.transport.sendto(connect_req)
 
@@ -181,11 +203,12 @@ class UDPTracker(TrackerBaseClass):
 				# prepare announce request and send it
 				connection_id = self.parent_obj.connect_response['connection_id']
 				transaction_id = self.parent_obj.connect_response['transaction_id']
-				announce_message = self.parent_obj.gen_announce(connection_id, transaction_id)
+				announce_req_raw = self.parent_obj.gen_announce(connection_id, transaction_id)
+				announce_req = UDPTracker.serialize_announce("bytes", announce_req_raw)
 
 				# Send announce request
 				logger.info(f"{self.parent_obj} Sending announce request to {self.address}")
-				self.transport.sendto(announce_message)
+				self.transport.sendto(announce_req)
 
 
 			if action == 1:
@@ -211,16 +234,55 @@ class UDPTracker(TrackerBaseClass):
 
 
 class HTTPTracker(TrackerBaseClass):
-	def __init__(self, *args):
-		self.active = False
-		logger.debug(f"	http object skipped...")
+	def __init__(self, tracker_addr: str, torrent_info):
+		# self.active = False
+		# logger.debug(f"	http object skipped...")
+		super().__init__(tracker_addr, torrent_info)
+
+		# Set the http path parameter manually becase the base
+		# tracker class does not set it
+		self.path = urlparse(tracker_addr).path
+
+
+	def __repr__(self):
+		def __repr__(self) -> str:
+			return f"HTTPTracker({self.hostname:{self.port}})"
 
 
 	async def get_peers(self):
 		self.peers = []
-		await asyncio.sleep(1)
-		return []
+		# It is acceptable with HTTP trackers to directly send the announce request,
+		# without sending a connect request first (to reduce network overhead or some other reason)
+		announce_req_raw = self.gen_announce()
+		announce_req = HTTPTracker.serialize_announce("url", announce_req_raw)
 
+		def connect_to_tracker(payload: str) -> dict:
+			http_conn_factory = HTTPSConnection if self.scheme == "https" else HTTPConnection
+			connection = http_conn_factory(host=self.hostname, port=self.port)
+			final_query = f"{self.path}?{payload}"
+			connection.request("GET", final_query)
+			response = connection.getresponse()
+
+			if response.status == 200:
+				self.announce_response = bdecode(response.read())
+				peer_list = self.announce_response['peers']
+				for ip_addr in chunk(peer_list, 6):
+					ip, port = unpack('>IH', ip_addr)
+					ip = IPv4Address(ip).compressed
+					self.peers.append((ip, port))
+
+			else:
+				logger.INFO(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
+				return []
+
+		try:
+			loop = asyncio.get_running_loop()
+			result = await loop.run_in_executor(None, connect_to_tracker, announce_req)
+			return result
+
+		except Exception as E:
+			logger.info(f"Error occured while connecting to {self}: {E}")
+			return []
 
 
 class WSSTracker(TrackerBaseClass):
@@ -231,6 +293,7 @@ class WSSTracker(TrackerBaseClass):
 
 
 	async def get_peers(self):
-		await asyncio.sleep(1)
+		# await asyncio.sleep(1)
+
 		return []
 
