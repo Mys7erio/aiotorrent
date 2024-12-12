@@ -5,9 +5,8 @@ from typing import Literal
 from bencode import bdecode
 from struct import pack, unpack
 from ipaddress import IPv4Address
-from socket import gaierror as GAIError
-from urllib.parse import urlparse, urlencode, ParseResult
 from http.client import HTTPConnection, HTTPSConnection
+from urllib.parse import urlparse, urlencode, ParseResult
 
 from aiotorrent.core.util import chunk
 
@@ -15,6 +14,10 @@ from aiotorrent.core.util import chunk
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+
+PEER_ID = b"aiotorrent-XXXXXXXXX"
+
+#TODO: Aggregate global variables in a seperate config file / dictionary
 
 class TrackerBaseClass:
 	def __init__(self, tracker_addr: ParseResult, torrent_info: dict) -> None:
@@ -36,7 +39,7 @@ class TrackerBaseClass:
 		self.announce_response: dict = {}
 
 
-	def gen_connect(self) -> dict:
+	def gen_connect_udp(self) -> dict:
 		connection_id = 0x41727101980
 		action = 0
 		transaction_id = randint(1, 65536)
@@ -63,7 +66,7 @@ class TrackerBaseClass:
 
 
 
-	def gen_announce(self, connection_id: int = 0, transaction_id: int = 0) -> dict:
+	def gen_announce_udp(self, connection_id: int = 0, transaction_id: int = 0) -> dict:
 		# Create a dictionary with all the properties of
 		# the UDP connect message
 
@@ -72,7 +75,7 @@ class TrackerBaseClass:
 			'action': 1,									# 32 bit integer; announce
 			'transaction_id': transaction_id,				# 32 bit integer
 			'info_hash': self.torrent_info['info_hash'],	# 20 byte string
-			'peer_id': b"ABCD" + b"X"*16,					# 20 byte string; Should be the same and only change if the client restarts
+			'peer_id': PEER_ID,								# 20 byte string; Should be the same and only change if the client restarts
 			'downloaded': 0,								# 64 bit integer
 			'left': self.torrent_info['size'],				# 64 bit integer
 			'uploaded': 0,									# 64 bit integer
@@ -81,6 +84,28 @@ class TrackerBaseClass:
 			'key': self.key,								# 32 bit integer
 			'num_want': 200,								# 32 bit integer; -1 is default
 			'port': 6887									# 16 bit integer; should be between 6881 & 6889
+		}
+
+		return announce_params
+
+	def gen_announce_http(self):
+		# no_peer_id: Not included because this option is ignored if compact is enabled
+
+		# ip: Not included because this option is only needed in the case where the IP address
+		# that the request came in on is not the IP address of the client.
+
+		# key, trackerid: Optional, so not included
+
+		announce_params = {
+			'info_hash': self.torrent_info['info_hash'],
+			'peer_id': PEER_ID,
+			'port': 6887,
+			'uploaded': 0,
+			'downloaded': 0,
+			'left': self.torrent_info['size'],
+			'compact': 1,
+			'event': 'started',
+			'num_want': 200
 		}
 
 		return announce_params
@@ -183,8 +208,8 @@ class UDPTracker(TrackerBaseClass):
 		def connection_made(self, transport: asyncio.DatagramTransport) -> None:
 			self.transport = transport
 			# Send connection request when connected
-			connect_req_raw = self.parent_obj.gen_connect()
-			connect_req = UDPTracker.serialize_connect("bytes", connect_req_raw)
+			connect_req_params = self.parent_obj.gen_connect_udp()
+			connect_req = UDPTracker.serialize_connect("bytes", connect_req_params)
 			logger.info(f"{self.parent_obj} Sending connect request to {self.address}")
 			self.transport.sendto(connect_req)
 
@@ -203,8 +228,8 @@ class UDPTracker(TrackerBaseClass):
 				# prepare announce request and send it
 				connection_id = self.parent_obj.connect_response['connection_id']
 				transaction_id = self.parent_obj.connect_response['transaction_id']
-				announce_req_raw = self.parent_obj.gen_announce(connection_id, transaction_id)
-				announce_req = UDPTracker.serialize_announce("bytes", announce_req_raw)
+				announce_req_params = self.parent_obj.gen_announce_udp(connection_id, transaction_id)
+				announce_req = UDPTracker.serialize_announce("bytes", announce_req_params)
 
 				# Send announce request
 				logger.info(f"{self.parent_obj} Sending announce request to {self.address}")
@@ -236,30 +261,29 @@ class UDPTracker(TrackerBaseClass):
 class HTTPTracker(TrackerBaseClass):
 	def __init__(self, tracker_addr: str, torrent_info):
 		# self.active = False
-		# logger.debug(f"	http object skipped...")
 		super().__init__(tracker_addr, torrent_info)
 
-		# Set the http path parameter manually becase the base
-		# tracker class does not set it
+		# Set http path parameter manually because the BaseTracker doesn't
 		self.path = urlparse(tracker_addr).path
 
 
 	def __repr__(self):
-		def __repr__(self) -> str:
-			return f"HTTPTracker({self.hostname:{self.port}})"
+		return f"HTTPTracker({self.hostname}:{self.port})"
 
 
 	async def get_peers(self):
 		self.peers = []
 		# It is acceptable with HTTP trackers to directly send the announce request,
 		# without sending a connect request first (to reduce network overhead or some other reason)
-		announce_req_raw = self.gen_announce()
+		announce_req_raw = self.gen_announce_http()
 		announce_req = HTTPTracker.serialize_announce("url", announce_req_raw)
 
 		def connect_to_tracker(payload: str) -> dict:
 			http_conn_factory = HTTPSConnection if self.scheme == "https" else HTTPConnection
 			connection = http_conn_factory(host=self.hostname, port=self.port)
 			final_query = f"{self.path}?{payload}"
+
+			#TODO: Add useragent to the http request 
 			connection.request("GET", final_query)
 			response = connection.getresponse()
 
@@ -272,7 +296,7 @@ class HTTPTracker(TrackerBaseClass):
 					self.peers.append((ip, port))
 
 			else:
-				logger.INFO(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
+				logger.info(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
 				return []
 
 		try:
@@ -280,9 +304,10 @@ class HTTPTracker(TrackerBaseClass):
 			result = await loop.run_in_executor(None, connect_to_tracker, announce_req)
 			return result
 
-		except Exception as E:
-			logger.info(f"Error occured while connecting to {self}: {E}")
+		except Exception as e:
+			logger.info(f"Error occured while connecting to {self}: {e}")
 			return []
+
 
 
 class WSSTracker(TrackerBaseClass):

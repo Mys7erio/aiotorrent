@@ -7,7 +7,10 @@ class File:
 	"""
 	def __init__(self, file_info: dict, counted: int, piece_size: int) -> None:
 		self.size = file_info['length']
-		self.name = file_info['path'][0]
+
+		# In case of single file torrent, the name is a string, and not a list of filenames[strings]
+		filename = file_info['path']
+		self.name = filename[0] if isinstance(filename, list) else filename
 		self.__bytes_written = 0
 		self.__bytes_downloaded = 0
 
