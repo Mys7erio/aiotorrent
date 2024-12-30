@@ -1,4 +1,5 @@
 class File:
+	#TODO: Rename to TorrentFile
 	"""
 	{
 		'length': int,
