@@ -8,6 +8,8 @@ import os
 from ipaddress import IPv4Address
 from struct import unpack
 
+actual_peers = []
+
 def chunk(string, size):
 	"""A function that splits a string into specified chunk size
 
@@ -32,9 +34,10 @@ def random_info_hash():
     return b"\xdd\x82U\xec\xdc|\xa5_\xb0\xbb\xf8\x13#\xd8pb\xdb\x1fm\x1c"
     # return hashlib.sha1(b"example").digest()
 
-def send_get_peers(info_hash, node_id):
+def send_get_peers(info_hash, node_id, node_addr):
+    print(f"Connecting to peer: {node_addr}")
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.settimeout(5)
+    sock.settimeout(3)
 
     transaction_id = os.urandom(2)
 
@@ -49,7 +52,7 @@ def send_get_peers(info_hash, node_id):
     }
 
     message = bencode.bencode(query)
-    sock.sendto(message, BOOTSTRAP_NODE)
+    sock.sendto(message, node_addr)
 
     try:
         data, _ = sock.recvfrom(65536)
@@ -58,6 +61,8 @@ def send_get_peers(info_hash, node_id):
     except socket.timeout:
         print("No response received.")
         return None
+    except Exception as e:
+        print(e)
     finally:
         sock.close()
 
@@ -66,9 +71,15 @@ def parse_response(response):
         return None
 
     r = response['r']
-    if 'values' in r:
         # Found peers directly
-        peers = r['values']
+    if 'values' in r:
+        peers = []
+        peers_addrs = r['values']
+        for peer_addr in peers_addrs:
+            ip, port = unpack('>IH', peer_addr)
+            ip = IPv4Address(ip).compressed
+            peers.append((ip, port))
+        breakpoint()
         return [peer for peer in peers]
     elif 'nodes' in r:
         # Got closer nodes (encoded compact format)
@@ -78,26 +89,34 @@ def parse_response(response):
 
 def decode_nodes(nodes_blob):
     nodes = []
-    for i in range(0, len(nodes_blob), 26):
-        nid = nodes_blob[i:i+20]
-        ip = socket.inet_ntoa(nodes_blob[i+20:i+24])
-        port = int.from_bytes(nodes_blob[i+24:i+26], 'big')
-        print(ip, port)
-        nodes.append((nid, ip, port))
+    # for i in range(0, len(nodes_blob), 26):
+    #     nid = nodes_blob[i:i+20]
+    #     ip = socket.inet_ntoa(nodes_blob[i+20:i+24])
+    #     port = int.from_bytes(nodes_blob[i+24:i+26], 'big')
+    #     print(ip, port)
+    #     nodes.append((nid, ip, port))
 
     for node_info in chunk(nodes_blob, 26):
         node_id = node_info[:19]
         ip, port = unpack('>IH', node_info[20:26])
         ip = IPv4Address(ip).compressed
         print(ip, port)
+        nodes.append((ip, port))
     return nodes
 
 # --- Example usage ---
 node_id = random_node_id()
 info_hash = random_info_hash()  # Replace with actual info_hash if needed
 
-response = send_get_peers(info_hash, node_id)
-results = parse_response(response)
+nodes = [BOOTSTRAP_NODE]
+while len(nodes) > 0:
+    node = nodes.pop()
+    response = send_get_peers(info_hash, node_id, node)
+    results = parse_response(response)
+    if results is not None:
+        nodes.extend(results)
+    else:
+        print("Empty result")
 
 print("Results:")
 for r in results or []:
