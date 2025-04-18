@@ -10,6 +10,7 @@ from aiotorrent.core.file_utils import FileTree
 from aiotorrent.tracker_factory import TrackerFactory
 from aiotorrent.downloader import FilesDownloadManager
 from aiotorrent.core.util import DownloadStrategy
+from aiotorrent.DHTv4 import SimpleDHTCrawler
 
 
 # Asyncio throws runtime error if the platform is windows
@@ -76,6 +77,7 @@ class Torrent:
 			'trackers': trackers,
 		}
 
+
 		# Add announce url to trackers list if announce exists
 		if announce: self.torrent_info['trackers'].append(announce)
 
@@ -104,16 +106,31 @@ class Torrent:
 
 
 	def _get_peers(self):
+		peers_aggregated = set()
 		# Get peers address from each tracker
-		for tracker in self.trackers:
-			for peer in tracker.peers:
-				if not peer in self.torrent_info['peers']:
-					# Add peer address to torrent info
-					self.torrent_info['peers'].append(peer)
-					# create and add peers object to self
-					self.peers.append(Peer(peer, self.torrent_info))
+		# for tracker in self.trackers:
+		# 	for peer in tracker.peers:
+		# 		if not peer in self.torrent_info['peers']:
+		# 			# Add peer address to torrent info
+		# 			self.torrent_info['peers'].append(peer)
+		# 			# create and add peers object to self
+		# 			self.peers.append(Peer(peer, self.torrent_info))
 
-		logger.info(f"Got {len(self.torrent_info['peers'])} Peers for this torrent")
+		for tracker in self.trackers:
+			peer_list = set(tracker.peers)
+			peers_aggregated |= peer_list
+
+		logger.info(f"Got {len(peers_aggregated)} Peers for this torrent")
+		return peers_aggregated
+
+
+	async def _get_peers_dht(self, timeout = 30):
+		info_hash = self.torrent_info['info_hash']
+		dht_crawler = SimpleDHTCrawler(info_hash)
+		peers = await dht_crawler.crawl(MAX_NODES_TO_QUERY=120)
+		# peers = await asyncio.wait_for(dht_crawler.crawl(), timeout = timeout)
+		logger.info(f"Got {len(peers)} Peers using DHT")
+		return peers
 
 
 	def show_files(self):
@@ -121,10 +138,30 @@ class Torrent:
 			logger.info(f"File: {file}")
 
 
-	async def init(self):
+	async def init(self, dht_enabled = False):
 		# Contact Trackers and get peers
 		await self._contact_trackers()
-		self._get_peers() #TODO: Rename get_peers to add_peers
+		peer_addrs = self._get_peers() #TODO: Rename get_peers to add_peers
+
+		dht_peers = set()
+		if dht_enabled:
+			dht_peers = await self._get_peers_dht(timeout=30)
+			peer_addrs |= dht_peers
+
+		# If there are more than 512 peers, randomly shortlist them
+		# I call this the CDC Sort
+		#TODO: Use a better strategy to shortlist peers. 
+		# When I tried opening connections to ~1300 peers parallely
+		# Error: ValueError: too many file descriptors in select() 
+		# ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+		if len(peer_addrs) > 128:
+			shortlisted_peers = set()
+			for _ in range(128):
+				shortlisted_peers.add(peer_addrs.pop())
+
+		# Attach all the aggregated peers to self
+		self.peers = [Peer(peer, self.torrent_info) for peer in peer_addrs]
+		breakpoint()
 
 		# Use list comprehension to create and execute peer functions in parallel
 		connections = [peer.connect() for peer in self.peers]
@@ -135,6 +172,9 @@ class Torrent:
 
 		interested_msgs = [peer.intrested() for peer in self.peers]
 		await asyncio.gather(*interested_msgs)
+
+
+
 
 		# Info
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
