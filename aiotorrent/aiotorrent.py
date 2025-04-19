@@ -161,7 +161,6 @@ class Torrent:
 
 		# Attach all the aggregated peers to self
 		self.peers = [Peer(peer, self.torrent_info) for peer in peer_addrs]
-		breakpoint()
 
 		# Use list comprehension to create and execute peer functions in parallel
 		connections = [peer.connect() for peer in self.peers]

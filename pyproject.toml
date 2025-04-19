@@ -34,6 +34,8 @@ fast-bencode = "^1.1.4"
 [tool.poetry.extras]
 stream-support = ["starlette", "uvicorn"]
 
+[tool.poetry.scripts]
+aiotorrent = "aiotorrent.core.cli:main"
 
 [build-system]
 requires = ["poetry-core"]
