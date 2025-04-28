@@ -224,6 +224,7 @@ class UDPTracker(TrackerBaseClass):
 				logger.info(f"{self.parent_obj} Received connect response from {addr}")
 				logger.debug(f"{self.parent_obj} Connect response: {data[:16]}")
 				self.parent_obj.connect_response = self.parent_obj.parse_connect(data)
+				self.parent_obj.active = True
 
 				# prepare announce request and send it
 				connection_id = self.parent_obj.connect_response['connection_id']
@@ -288,6 +289,7 @@ class HTTPTracker(TrackerBaseClass):
 			response = connection.getresponse()
 
 			if response.status == 200:
+				self.active = True
 				self.announce_response = bdecode(response.read())
 				peer_list = self.announce_response['peers']
 				for ip_addr in chunk(peer_list, 6):

@@ -3,6 +3,8 @@
 import sys
 import asyncio
 import logging
+import traceback
+from pprint import pprint
 from datetime import datetime as dt
 
 from aiotorrent import Torrent
@@ -25,32 +27,35 @@ async def main():
 	print("*"*64)
 	try:
 		torrent_file = sys.argv[1]
-	except:
+		torrent = Torrent(torrent_file)
+
+		start = dt.now()
+		print(f"Started Execution at: {start}")
+
+		await torrent.init(dht_enabled=True)
+		pprint(torrent.get_torrent_info())
+		for file in torrent.files:
+			await torrent.download(file, strategy=DownloadStrategy.SEQUENTIAL)
+
+		end = dt.now()
+		elapsed = end - start
+		print(f"Execution completed in: {elapsed}")
+
+	except IndexError:
 		print("[x] No torrent file supplied")
 		sys.exit(1)
 
-	torrent = Torrent(torrent_file)
-	# sub, video, poster = torrent.files
-
-	start = dt.now()
-	print(f"Started Execution at: {start}")
-
-	await torrent.init(dht_enabled=True)
-	for file in torrent.files:
-		await torrent.download(file, strategy=DownloadStrategy.SEQUENTIAL)
-
-	end = dt.now()
-	elapsed = end - start
-	print(f"Execution completed in: {elapsed}")
+	except Exception:
+		traceback.print_exc()
 
 
 async def stream_test():
 	torrent = Torrent(r'utils\big-buck-bunny.torrent')
 	sub, video, poster = torrent.files
-	await torrent.init()
+	await torrent.init(dht_enabled=True)
 	await torrent.stream(video)
 
 
 if __name__ == "__main__":
-	asyncio.run(main())
+	asyncio.run(stream_test())
 

@@ -1,9 +1,11 @@
+import copy
 import asyncio
 import bencode
 import hashlib
 import logging
 import platform
 
+import json
 from aiotorrent.peer import Peer
 from aiotorrent.core.util import chunk, PieceWriter
 from aiotorrent.core.file_utils import FileTree
@@ -90,8 +92,8 @@ class Torrent:
 
 		self.files = FileTree(self.torrent_info)
 
-		for file in self.files:
-			logger.info(f"File: {file}")
+		# for file in self.files:
+		# 	logger.debug(f"File: {file}")
 
 			
 	async def _contact_trackers(self):
@@ -149,7 +151,6 @@ class Torrent:
 			peer_addrs |= dht_peers
 
 		# If there are more than 512 peers, randomly shortlist them
-		# I call this the CDC Sort
 		#TODO: Use a better strategy to shortlist peers. 
 		# When I tried opening connections to ~1300 peers parallely
 		# Error: ValueError: too many file descriptors in select() 
@@ -159,7 +160,7 @@ class Torrent:
 			for _ in range(128):
 				shortlisted_peers.add(peer_addrs.pop())
 
-		# Attach all the aggregated peers to self
+		# Initialize and attach all aggregated peers objects to self
 		self.peers = [Peer(peer, self.torrent_info) for peer in peer_addrs]
 
 		# Use list comprehension to create and execute peer functions in parallel
@@ -172,8 +173,8 @@ class Torrent:
 		interested_msgs = [peer.intrested() for peer in self.peers]
 		await asyncio.gather(*interested_msgs)
 
-
-
+		# Add peers addresses to torrent_info
+		self.torrent_info['peers'] = peer_addrs
 
 		# Info
 		active_peers = [peer for peer in self.peers if peer.has_handshaked]
@@ -231,3 +232,21 @@ class Torrent:
 		server = uvicorn.Server(config)
 		await server.serve()
 
+
+	def get_torrent_info(self, format='json', verbose=False):
+		# TODO: Add Yaml as an export format
+		torrent_info = copy.deepcopy(self.torrent_info)
+		torrent_info['info_hash'] = torrent_info['info_hash'].hex()
+		
+		piece_hashmap = torrent_info.pop('piece_hashmap')
+		peer_list = torrent_info.pop('peers')
+
+		if verbose:
+			# Serialize piece hashes by converting byte objects to their hex representations
+			torrent_info['piece_hashmap'] = {}
+			for piece_no, piece_hash in piece_hashmap.items():
+				torrent_info['piece_hashmap'][piece_no] = piece_hash.hex()
+
+			torrent_info['peers'] = tuple(peer_list)
+
+		return json.dumps(torrent_info)

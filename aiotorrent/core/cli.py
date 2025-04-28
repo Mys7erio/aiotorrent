@@ -35,6 +35,13 @@ async def stream_torrent(torrent_file_loc, host="127.0.0.0", port=8080):
         await torrent.stream(file, host=host, port=port)
 
 
+def print_torrent_info(torrent_file_loc, format="json", verbose=False):
+    torrent = Torrent(torrent_file_loc)
+    info = torrent.get_torrent_info(format=format, verbose=verbose)
+    print(info)
+
+
+
 # ================================ Create parsers here ================================
 def create_download_parser(subparsers):
     download_parser = subparsers.add_parser(
@@ -81,6 +88,25 @@ def create_stream_parser(subparsers):
     return stream_parser
 
 
+def create_info_parser(subparsers):
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Parse and show torrent metadata"
+    )
+    info_parser.add_argument(
+        "torrent_path",
+        help="Path to the .torrent file"
+    )
+    info_parser.add_argument(
+        "--format",
+        "-f",
+        default="json",
+        help="Format to print the torrent metadata. Defaults to json"
+    )
+
+    return info_parser
+
+
 # ================================ Main parser ================================
 async def main_parser():
     """Sets up and parses the arguments, then calls the appropriate function."""
@@ -103,9 +129,11 @@ async def main_parser():
 
     download_parser = create_download_parser(subparsers)
     stream_parser = create_stream_parser(subparsers)
+    info_parser = create_info_parser(subparsers)
 
     download_parser.set_defaults(func=download_torrent)
     stream_parser.set_defaults(func=stream_torrent)
+    info_parser.set_defaults(func=print_torrent_info)
     args = parser.parse_args()
 
     # Check if verbosity flag is set, if not it is set to 0
@@ -123,6 +151,8 @@ async def main_parser():
             await args.func(args.torrent_path, args.save_location)
         elif args.command == 'stream':
             await args.func(args.torrent_path, args.host, args.port)
+        elif args.command == 'info':
+            args.func(args.torrent_path, args.format, args.verbose)
     else:
         parser.print_help()
 
