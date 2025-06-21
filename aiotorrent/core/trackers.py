@@ -246,14 +246,19 @@ class UDPTracker(TrackerBaseClass):
 
 	async def get_peers(self, timeout: int = 3) -> list[tuple[str, int]]:
 
-		loop = asyncio.get_running_loop()
-		await loop.create_datagram_endpoint(
-			lambda: self.UDPProtocolFactory(self),
-			remote_addr = (self.hostname, self.port)
-		)
-		# This is necessary to wait for the response.
-		# We can use asyncio.Event() for this as well
-		await asyncio.sleep(timeout)
+		try:
+			loop = asyncio.get_running_loop()
+			await loop.create_datagram_endpoint(
+				lambda: self.UDPProtocolFactory(self),
+				remote_addr = (self.hostname, self.port)
+			)
+			# This is necessary to wait for the response.
+			# We can use asyncio.Event() for this as well
+			await asyncio.sleep(timeout)
+
+		except Exception as e:
+			self.peers = []
+			logger.error(e)
 
 		return self.peers
 
@@ -307,7 +312,7 @@ class HTTPTracker(TrackerBaseClass):
 			return result
 
 		except Exception as e:
-			logger.info(f"Error occured while connecting to {self}: {e}")
+			logger.error(f"Error occured while connecting to {self}: {e}")
 			return []
 
 

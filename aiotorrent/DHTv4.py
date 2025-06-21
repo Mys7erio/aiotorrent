@@ -1,11 +1,17 @@
-import asyncio
 import os
+import asyncio
+import logging
 from struct import unpack
-import bencode
 from ipaddress import IPv4Address
+
+import bencode
 from bencode._bencode import BTFailure
 
 from aiotorrent.core.util import chunk
+
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 
 class DHTProtocolHelper(asyncio.DatagramProtocol):
@@ -69,9 +75,9 @@ class SimpleDHTCrawler:
             ip = IPv4Address(ip).compressed
             return (ip, port)
         except BTFailure as e:
-            print(e)
+            logger.error(f"Invalid IP Address {ip:port}: {e}")
         except Exception as e:
-            print(e)
+            logger.error(f"An unknown error occured decoding IP Address {ip:port}: {e}")
 
 
     def _decode_nodes(self, nodes_blob):
@@ -103,16 +109,16 @@ class SimpleDHTCrawler:
                 closer_nodes.extend(self._decode_nodes(closer_nodes_blob))
 
         except BTFailure as e:
-            print(f"Error decoding bencode: {e}")
+            logger.error(f"Error decoding bencoded data recieved from peer {peer_addr}: {e}")
         
         except Exception as e:
-            print(f"Error while parsing peer response: {e}")
+            logger.error(f"An unknown error occured while parsind bencoded data recieved from {peer_addr}: {e}")
 
         finally:
             return (peers, closer_nodes)
 
 
-    async def send_get_peers_req(self, peer_addr, message, loop, timeout=5):
+    async def send_get_peers_req(self, peer_addr, message, loop, _semaphore, timeout=5):
         response_future = loop.create_future()
 
         def on_response(data):
@@ -122,6 +128,7 @@ class SimpleDHTCrawler:
 
             for node in closer_nodes:
                 self._nodes_to_crawl.put_nowait(node)
+
             if not response_future.done():
                 response_future.set_result(data)
 
@@ -135,48 +142,46 @@ class SimpleDHTCrawler:
                 remote_addr=peer_addr
             )
             return await asyncio.wait_for(response_future, timeout)
+
         except asyncio.TimeoutError:
-            print(f"Timeout from {peer_addr}")
+            logger.debug(f"Timeout from {peer_addr}")
             return None
         
         except Exception as e:
-            print(e)
+            logger.error(f"An unknown error occured while sending a datagram to {peer_addr}: {e}")
+        
+        finally:
+            _semaphore.release()
 
 
-    async def crawl(self, MAX_NODES_TO_QUERY = None, BATCH_SIZE = None):
+    async def crawl(self, min_peers_to_retrieve = 100, max_connections = 256):
         loop = asyncio.get_running_loop()
-        print(f"Starting DHT crawl with Node ID: {self.node_id.hex()}")
+        logger.info(f"Starting DHT crawl with Node ID: {self.node_id.hex()}")
 
         processed_count = 0
-        MAX_NODES_TO_QUERY = MAX_NODES_TO_QUERY or 250
-        BATCH_SIZE = BATCH_SIZE or 25
+        semaphore = asyncio.Semaphore(max_connections)
 
-        while not self._nodes_to_crawl.empty() and processed_count < MAX_NODES_TO_QUERY:
-            nodes_to_process_batch = []
-            for _ in range(BATCH_SIZE):
-                if not self._nodes_to_crawl.empty():
-                    nodes_to_process_batch.append(await self._nodes_to_crawl.get())
-                else:
-                    break
-
-            if not nodes_to_process_batch:
+        while len(self.FOUND_PEERS) < min_peers_to_retrieve:
+            if self._nodes_to_crawl.empty():
+                logger.info("Exhausted all available nodes on DHT")
                 break
+            
+            await semaphore.acquire()
+            peer_addr = await self._nodes_to_crawl.get()
+            transaction_id = os.urandom(2)
+            message = self._generate_get_peers_query(transaction_id, self.info_hash)
+            await asyncio.create_task(self.send_get_peers_req(peer_addr, message, loop, semaphore))
+            processed_count += 1
 
-            print(f"Processing batch of {len(nodes_to_process_batch)} nodes. Queue size: {self._nodes_to_crawl.qsize()}")
+            # Empty queue to check how the program handles an exhausted queue
+            # if len(self.FOUND_PEERS) > min_peers_to_retrieve / 2:
+            #     while not self._nodes_to_crawl.empty():
+            #         self._nodes_to_crawl.get_nowait()
 
-            async with asyncio.TaskGroup() as tg:
-                for peer_addr in nodes_to_process_batch:
-                    transaction_id = os.urandom(2)
-                    message = self._generate_get_peers_query(transaction_id, self.info_hash)
-                    tg.create_task(self.send_get_peers_req(peer_addr, message, loop))
-                    processed_count += 1
+            logger.debug(f"Found {len(self.FOUND_PEERS)}/{min_peers_to_retrieve} peers [{self._nodes_to_crawl.qsize()} in queue]")
 
-            await asyncio.sleep(0.5)
-
-
-        print(self.FOUND_PEERS)
-        print(f"Finished crawling after processing {processed_count} nodes.")
-        print(f"Final NODES queue size: {self._nodes_to_crawl.qsize()}")
+        logger.info(f"Found {len(self.FOUND_PEERS)} peers after crawling {processed_count} nodes")
+        logger.debug(f"{self._nodes_to_crawl.qsize()} nodes left in queue")
         
         return self.FOUND_PEERS
         

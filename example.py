@@ -31,11 +31,10 @@ async def main():
 
 		start = dt.now()
 		print(f"Started Execution at: {start}")
-
 		await torrent.init(dht_enabled=True)
-		pprint(torrent.get_torrent_info())
+		# pprint(torrent.get_torrent_info())
 		for file in torrent.files:
-			await torrent.download(file, strategy=DownloadStrategy.SEQUENTIAL)
+			await torrent.download(file, strategy=DownloadStrategy.DEFAULT)
 
 		end = dt.now()
 		elapsed = end - start
@@ -57,5 +56,5 @@ async def stream_test():
 
 
 if __name__ == "__main__":
-	asyncio.run(stream_test())
+	asyncio.run(main())
 

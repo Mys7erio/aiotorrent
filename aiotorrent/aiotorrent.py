@@ -129,7 +129,7 @@ class Torrent:
 	async def _get_peers_dht(self, timeout = 30):
 		info_hash = self.torrent_info['info_hash']
 		dht_crawler = SimpleDHTCrawler(info_hash)
-		peers = await dht_crawler.crawl(MAX_NODES_TO_QUERY=120)
+		peers = await dht_crawler.crawl(min_peers_to_retrieve=200)
 		# peers = await asyncio.wait_for(dht_crawler.crawl(), timeout = timeout)
 		logger.info(f"Got {len(peers)} Peers using DHT")
 		return peers

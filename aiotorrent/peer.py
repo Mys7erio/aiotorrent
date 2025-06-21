@@ -19,6 +19,7 @@ class Peer:
 		self.active = False
 		self.priority = priority
 		# self.busy = False
+		self.total_disconnects = 0
 
 		self.choking_me = True
 		self.am_interested = False
@@ -58,6 +59,7 @@ class Peer:
 
 	async def disconnect(self, message=''):
 		self.active = False
+		self.total_disconnects += 1
 		if hasattr(self, 'writer'):
 			await self.writer.drain()
 			self.writer.close()
@@ -91,6 +93,8 @@ class Peer:
 		# This means that this peer dropped the connection mid execution
 		# So, we will re-establish a connection and re-raise the exception
 		if not self.active:
+			if self.total_disconnects > 10:
+				return
 			await self.connect()
 			await self.handshake()
 			await self.intrested()
