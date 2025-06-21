@@ -32,13 +32,13 @@ _Tested on `Python 3.11` but it should work on `Python ^3.9` versions just fine.
 Install aiotorrent from PyPI using:
 
 ```
-$ pip install python-aiotorrent
+$ pip install aiotorrent
 ```
 
 In order to use the streaming feature, you can install the dependencies using:
 
 ```
-$ pip install python-aiotorrent[stream-support]
+$ pip install aiotorrent[stream-support]
 ```
 
 <br />

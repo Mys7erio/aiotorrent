@@ -62,7 +62,7 @@ class Piece:
 
 		for offset in block_offsets:
 			block_num = int(offset / BLOCK_SIZE)
-			logger.info(f"Requesting Block #{self.num}-{block_num} from {peer}")
+			logger.debug(f"Requesting Block #{self.num}-{block_num} from {peer}")
 			request_message = Generator.gen_request(self.num, offset)
 
 			# Last block of last piece will be requested with second last block.
@@ -85,7 +85,7 @@ class Piece:
 			artifacts = Parser(response).parse()
 			blocks = await Handler(artifacts, Peer=peer).handle()
 			for block in blocks:
-				logger.info(f"Got {block} from {peer}")
+				logger.debug(f"Got {block} from {peer}")
 
 			return blocks
 		
@@ -142,7 +142,6 @@ class Piece:
 
 	async def download(self, peers_man, _semaphore = None) -> 'Piece':
 		priority, peer = await peers_man.get()
-		logger.info(f"PeersManager: {peers_man.qsize()} peers in queue")
 
 		while not self.is_piece_complete():
 			task_list = list()

@@ -3,6 +3,7 @@ import logging
 from random import randint
 from typing import Literal
 from bencode import bdecode
+from socket import gaierror
 from struct import pack, unpack
 from ipaddress import IPv4Address
 from http.client import HTTPConnection, HTTPSConnection
@@ -210,7 +211,7 @@ class UDPTracker(TrackerBaseClass):
 			# Send connection request when connected
 			connect_req_params = self.parent_obj.gen_connect_udp()
 			connect_req = UDPTracker.serialize_connect("bytes", connect_req_params)
-			logger.info(f"{self.parent_obj} Sending connect request to {self.address}")
+			logger.debug(f"{self.parent_obj} Sending connect request to {self.address}")
 			self.transport.sendto(connect_req)
 
 
@@ -221,7 +222,7 @@ class UDPTracker(TrackerBaseClass):
 
 			if action == 0:
 				# if action is 0, then it's a connect response
-				logger.info(f"{self.parent_obj} Received connect response from {addr}")
+				logger.debug(f"{self.parent_obj} Received connect response from {addr}")
 				logger.debug(f"{self.parent_obj} Connect response: {data[:16]}")
 				self.parent_obj.connect_response = self.parent_obj.parse_connect(data)
 				self.parent_obj.active = True
@@ -233,7 +234,7 @@ class UDPTracker(TrackerBaseClass):
 				announce_req = UDPTracker.serialize_announce("bytes", announce_req_params)
 
 				# Send announce request
-				logger.info(f"{self.parent_obj} Sending announce request to {self.address}")
+				logger.debug(f"{self.parent_obj} Sending announce request to {self.address}")
 				self.transport.sendto(announce_req)
 
 
@@ -256,6 +257,8 @@ class UDPTracker(TrackerBaseClass):
 			# We can use asyncio.Event() for this as well
 			await asyncio.sleep(timeout)
 
+		except gaierror as e:
+			logger.warning(f"Failed to get address info for {self}")
 		except Exception as e:
 			self.peers = []
 			logger.error(e)
@@ -303,7 +306,7 @@ class HTTPTracker(TrackerBaseClass):
 					self.peers.append((ip, port))
 
 			else:
-				logger.info(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
+				logger.warning(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
 				return []
 
 		try:

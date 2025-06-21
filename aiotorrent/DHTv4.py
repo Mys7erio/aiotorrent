@@ -178,7 +178,7 @@ class SimpleDHTCrawler:
             #     while not self._nodes_to_crawl.empty():
             #         self._nodes_to_crawl.get_nowait()
 
-            logger.debug(f"Found {len(self.FOUND_PEERS)}/{min_peers_to_retrieve} peers [{self._nodes_to_crawl.qsize()} in queue]")
+            logger.info(f"Found {len(self.FOUND_PEERS)}/{min_peers_to_retrieve} peers [{self._nodes_to_crawl.qsize()} in queue]")
 
         logger.info(f"Found {len(self.FOUND_PEERS)} peers after crawling {processed_count} nodes")
         logger.debug(f"{self._nodes_to_crawl.qsize()} nodes left in queue")

@@ -129,7 +129,7 @@ class Torrent:
 	async def _get_peers_dht(self, timeout = 30):
 		info_hash = self.torrent_info['info_hash']
 		dht_crawler = SimpleDHTCrawler(info_hash)
-		peers = await dht_crawler.crawl(min_peers_to_retrieve=200)
+		peers = await dht_crawler.crawl(min_peers_to_retrieve=100)
 		# peers = await asyncio.wait_for(dht_crawler.crawl(), timeout = timeout)
 		logger.info(f"Got {len(peers)} Peers using DHT")
 		return peers
@@ -155,10 +155,10 @@ class Torrent:
 		# When I tried opening connections to ~1300 peers parallely
 		# Error: ValueError: too many file descriptors in select() 
 		# ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
-		if len(peer_addrs) > 128:
-			shortlisted_peers = set()
-			for _ in range(128):
-				shortlisted_peers.add(peer_addrs.pop())
+		# if len(peer_addrs) > 128:
+		# 	shortlisted_peers = set()
+		# 	for _ in range(128):
+		# 		shortlisted_peers.add(peer_addrs.pop())
 
 		# Initialize and attach all aggregated peers objects to self
 		self.peers = [Peer(peer, self.torrent_info) for peer in peer_addrs]

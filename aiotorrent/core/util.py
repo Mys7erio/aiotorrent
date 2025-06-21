@@ -76,7 +76,7 @@ def chunk(string, size):
 		size: int
 			The size of each chunk
 	"""
-
+	# Use the built-in slice function
 	for _ in range(0, len(string), size):
 		yield string[:size]
 		string = string[size:]
