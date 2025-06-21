@@ -3,6 +3,7 @@ import logging
 from random import randint
 from typing import Literal
 from bencode import bdecode
+from socket import gaierror
 from struct import pack, unpack
 from ipaddress import IPv4Address
 from http.client import HTTPConnection, HTTPSConnection
@@ -210,7 +211,7 @@ class UDPTracker(TrackerBaseClass):
 			# Send connection request when connected
 			connect_req_params = self.parent_obj.gen_connect_udp()
 			connect_req = UDPTracker.serialize_connect("bytes", connect_req_params)
-			logger.info(f"{self.parent_obj} Sending connect request to {self.address}")
+			logger.debug(f"{self.parent_obj} Sending connect request to {self.address}")
 			self.transport.sendto(connect_req)
 
 
@@ -221,9 +222,10 @@ class UDPTracker(TrackerBaseClass):
 
 			if action == 0:
 				# if action is 0, then it's a connect response
-				logger.info(f"{self.parent_obj} Received connect response from {addr}")
+				logger.debug(f"{self.parent_obj} Received connect response from {addr}")
 				logger.debug(f"{self.parent_obj} Connect response: {data[:16]}")
 				self.parent_obj.connect_response = self.parent_obj.parse_connect(data)
+				self.parent_obj.active = True
 
 				# prepare announce request and send it
 				connection_id = self.parent_obj.connect_response['connection_id']
@@ -232,7 +234,7 @@ class UDPTracker(TrackerBaseClass):
 				announce_req = UDPTracker.serialize_announce("bytes", announce_req_params)
 
 				# Send announce request
-				logger.info(f"{self.parent_obj} Sending announce request to {self.address}")
+				logger.debug(f"{self.parent_obj} Sending announce request to {self.address}")
 				self.transport.sendto(announce_req)
 
 
@@ -245,14 +247,21 @@ class UDPTracker(TrackerBaseClass):
 
 	async def get_peers(self, timeout: int = 3) -> list[tuple[str, int]]:
 
-		loop = asyncio.get_running_loop()
-		await loop.create_datagram_endpoint(
-			lambda: self.UDPProtocolFactory(self),
-			remote_addr = (self.hostname, self.port)
-		)
-		# This is necessary to wait for the response.
-		# We can use asyncio.Event() for this as well
-		await asyncio.sleep(timeout)
+		try:
+			loop = asyncio.get_running_loop()
+			await loop.create_datagram_endpoint(
+				lambda: self.UDPProtocolFactory(self),
+				remote_addr = (self.hostname, self.port)
+			)
+			# This is necessary to wait for the response.
+			# We can use asyncio.Event() for this as well
+			await asyncio.sleep(timeout)
+
+		except gaierror as e:
+			logger.warning(f"Failed to get address info for {self}")
+		except Exception as e:
+			self.peers = []
+			logger.error(e)
 
 		return self.peers
 
@@ -288,6 +297,7 @@ class HTTPTracker(TrackerBaseClass):
 			response = connection.getresponse()
 
 			if response.status == 200:
+				self.active = True
 				self.announce_response = bdecode(response.read())
 				peer_list = self.announce_response['peers']
 				for ip_addr in chunk(peer_list, 6):
@@ -296,7 +306,7 @@ class HTTPTracker(TrackerBaseClass):
 					self.peers.append((ip, port))
 
 			else:
-				logger.info(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
+				logger.warning(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
 				return []
 
 		try:
@@ -305,7 +315,7 @@ class HTTPTracker(TrackerBaseClass):
 			return result
 
 		except Exception as e:
-			logger.info(f"Error occured while connecting to {self}: {e}")
+			logger.error(f"Error occured while connecting to {self}: {e}")
 			return []
 
 
