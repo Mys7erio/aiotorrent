@@ -66,7 +66,7 @@ class FilesDownloadManager:
 		return True if self.file_pieces.empty() else False
 
 
-	async def get_file(self, file: File) -> Piece:
+	async def get_file(self, file: File, validate: bool = True) -> Piece:
 		self.create_pieces_queue(file)
 		task_list = list()
 
@@ -79,7 +79,7 @@ class FilesDownloadManager:
 		for task in asyncio.as_completed(task_list):
 			piece = await task
 
-			if not Piece.is_valid(piece, self.piece_hashmap):
+			if validate and not Piece.is_valid(piece, self.piece_hashmap):
 				self.file_pieces.put_nowait((1, piece.num))
 				continue
 
@@ -95,7 +95,7 @@ class FilesDownloadManager:
 		logger.info(f"File {file} downloaded")
 
 
-	async def get_file_sequential(self, file: File, piece_len) -> Piece:
+	async def get_file_sequential(self, file: File, piece_len, validate: bool = True) -> Piece:
 		task_list = []
 		dispatch_manager = SequentialPieceDispatcher(file, piece_len)
 
@@ -122,7 +122,7 @@ class FilesDownloadManager:
 						file._set_bytes_downloaded(file.get_bytes_downloaded() + len(piece.data))
 						# yield piece
 	
-						if not Piece.is_valid(piece, self.piece_hashmap):
+						if validate and not Piece.is_valid(piece, self.piece_hashmap):
 							self.file_pieces.put_nowait((1, piece.num))
 							continue
 
