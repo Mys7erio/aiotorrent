@@ -9,7 +9,6 @@ from aiotorrent.core.message_generator import MessageGenerator as Generator
 
 from aiotorrent.core.util import BLOCK_SIZE, BLOCKS_PER_CYCLE, MIN_BLOCKS_PER_CYCLE
 
-
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -17,13 +16,16 @@ logger.addHandler(logging.NullHandler())
 #TODO: Rename peers_man to peer_queue
 #TODO: Use consistent naming convention for other variables
 class Piece:
-	def __init__(self, num: int, priority: int, piece_info: dict[str, int]):
+	def __init__(self, num: int, priority: int, piece_info: dict[str, int], block_range: tuple[int, int] | None = None):
 		"""
 		num: int
 			Zero based piece index to be fetched from peers
 
 		piece_info: dict
 			dictionary containing information regarding pieces
+
+		block_range: tuple
+			range of block indexes to fetch
 
 		peers_man: PeersManager
 			Object of PeersManager
@@ -32,6 +34,7 @@ class Piece:
 		self.blocks = dict()
 		self.num = num
 		self.priority = priority
+		self.block_range = block_range or (0, piece_info['total_blocks'] - 1)
 
 		self._is_last_piece = False
 		self.total_blocks = piece_info['total_blocks']
@@ -97,8 +100,9 @@ class Piece:
 
 
 	def is_piece_complete(self) -> bool:
+		block_range = self.block_range
 		for block_num in range(self.total_blocks):
-			if not block_num in self.blocks:
+			if not block_num in self.blocks and block_range[0] <= block_num <= block_range[1]:
 				return False
 		return True
 
@@ -106,9 +110,10 @@ class Piece:
 	def gen_offsets(self) -> set:
 		blocks = set()
 		total_blocks = self.total_blocks
+		block_range = self.block_range
 		if self._is_last_piece: total_blocks += 1
 		for block_num in range(self.total_blocks):
-			if not block_num in self.blocks:
+			if not block_num in self.blocks and block_range[0] <= block_num <= block_range[1]:
 				block_offset = block_num * BLOCK_SIZE
 				blocks.add(block_offset)
 		return blocks
@@ -182,7 +187,10 @@ class Piece:
 
 		# Concatenate all the block values
 		for block_num in range(self.total_blocks):
-			self.data += self.blocks[block_num].data
+			if block_num in self.blocks:
+				self.data += self.blocks[block_num].data
+			else:
+				self.data += b'\0' * BLOCK_SIZE
 
 		await peers_man.put((priority - 1, peer))
 		# Release semaphore so that the next task can begin
