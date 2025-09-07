@@ -27,9 +27,13 @@ logger.addHandler(logging.NullHandler())
 
 class Torrent:
 	def __init__(self, torrent_file):
-		torrent = open(torrent_file, 'rb')
-		bencoded_data = torrent.read()
-		torrent.close()
+		if isinstance(torrent_file, bytes):
+			bencoded_data = torrent_file
+		elif hasattr(torrent_file, 'read'):
+			bencoded_data = torrent.read()
+		else:
+			with open(torrent_file, 'rb') as torrent:
+				bencoded_data = torrent.read()
 
 		# dict_keys(['files', 'name', 'piece length', 'pieces'])
 		data = bencode.bdecode(bencoded_data)
