@@ -5,7 +5,7 @@ from struct import unpack
 from ipaddress import IPv4Address
 
 import bencode
-from bencode._bencode import BTFailure
+# from bencode._bencode import BTFailure
 
 from aiotorrent.core.util import chunk
 
@@ -74,8 +74,8 @@ class SimpleDHTCrawler:
             ip, port = unpack('>IH', blob)
             ip = IPv4Address(ip).compressed
             return (ip, port)
-        except BTFailure as e:
-            logger.error(f"Invalid IP Address {ip:port}: {e}")
+        # except BTFailure as e:
+        #     logger.error(f"Invalid IP Address {ip:port}: {e}")
         except Exception as e:
             logger.error(f"An unknown error occured decoding IP Address {ip:port}: {e}")
 
@@ -108,8 +108,8 @@ class SimpleDHTCrawler:
                 closer_nodes_blob = response['r']['nodes']
                 closer_nodes.extend(self._decode_nodes(closer_nodes_blob))
 
-        except BTFailure as e:
-            logger.error(f"Error decoding bencoded data recieved from peer {peer_addr}: {e}")
+        # except BTFailure as e:
+        #     logger.error(f"Error decoding bencoded data recieved from peer {peer_addr}: {e}")
         
         except Exception as e:
             logger.error(f"An unknown error occured while parsind bencoded data recieved from {peer_addr}: {e}")
@@ -170,8 +170,9 @@ class SimpleDHTCrawler:
             peer_addr = await self._nodes_to_crawl.get()
             transaction_id = os.urandom(2)
             message = self._generate_get_peers_query(transaction_id, self.info_hash)
-            await asyncio.create_task(self.send_get_peers_req(peer_addr, message, loop, semaphore))
+            asyncio.create_task(self.send_get_peers_req(peer_addr, message, loop, semaphore))
             processed_count += 1
+            await asyncio.sleep(0.5)
 
             # Empty queue to check how the program handles an exhausted queue
             # if len(self.FOUND_PEERS) > min_peers_to_retrieve / 2:
