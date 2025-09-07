@@ -1,3 +1,4 @@
+import io
 import copy
 import asyncio
 import bencode
@@ -27,11 +28,11 @@ logger.addHandler(logging.NullHandler())
 
 class Torrent:
 	def __init__(self, torrent_file):
-		if isinstance(torrent_file, bytes):
-			bencoded_data = torrent_file
-		elif hasattr(torrent_file, 'read'):
-			bencoded_data = torrent.read()
+		# The object passed is a file-like object
+		if isinstance(torrent_file, io.IOBase):
+			bencoded_data = torrent_file.read()
 		else:
+			# The object passed is a filepath
 			with open(torrent_file, 'rb') as torrent:
 				bencoded_data = torrent.read()
 

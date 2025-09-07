@@ -59,7 +59,7 @@ class FilesDownloadManager:
 			self.file_pieces.put_nowait((piece_def, piece_num))
 
 
-	def file_downloaded(self) -> None:
+	def file_downloaded(self) -> bool:
 		'''
 		Returns true if all the pieces have been downloaded, false otherwise
 		'''

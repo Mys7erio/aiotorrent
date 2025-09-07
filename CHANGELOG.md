@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [FIX] import error from bencoding module caused the program to crash 
 
 ### Minor Changes
+- [FIX] Fixed type error in `downloader.py` in `FilesDownloadManager.file_downloaded` method
+
+## [v0.9.0] - 2025-06-22
+
+### Added
+- Added support for peer discovery via DHT crawling
+- Added aiotorrent cli script for torrent operations (get file info, download, and stream)
+
+### Changed
+- [CHANGED] Change the final package name from aiotorrent to python-aiotorrent
+
+### Minor Changes
+ - [FIX] Handle single torrent files correctly [`aiotorrent/core/file_utils.py`]
+ - [FIX] Improperly handled logging statement which crashed the program is not handled correctly [`aiotorrent/core/response_handler.py`]
 
 
 ## [v0.8.3] - 2024-12-24

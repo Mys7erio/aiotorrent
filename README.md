@@ -49,12 +49,27 @@ $ pip install aiotorrent[stream-support]
 
 ```python
 # Import the Torrent class and pass a torrent file to it:
+# You can either pass the file path or a file-like object. aiotorrent will handle it internally.
 from aiotorrent import Torrent
 torrent = Torrent('path/to/file.torrent')
 
 # To initialise the torrent, you need to call the init() coroutine.
 await torrent.init()
 ```
+
+
+## Getting peers via DHT
+While it is not a requirement, it is highly recommended to do use DHT (Distributed Hash Table) for peer discovery, which in turn can lead to better file retrieval speeds. To let aiotorrent perform peer discovery via DHT, you can pass the `dht_enabled=True` parameter to the `init()` coroutine, as follows:
+
+```python
+await torrent.init(dht_enabled=True)
+```
+
+> [!NOTE]
+> The current implementation of DHT is hardcoded to fetch a minimum of 100 peers
+
+> [!CAUTION]
+In some cases this can prevent the torrent from initializing when there are not enough peers available. This behavior will be fixed in a future release.
 
 ## Downloading & Streaming
 
@@ -97,6 +112,56 @@ file = torrent.files[1]
 # The download strategies available are: DownloadStrategy.DEFAULT and DownloadStrategy.SEQUENTIAL
 await torrent.download(file, strategy=DownloadStrategy.SEQUENTIAL)
 ```
+
+
+### Getting the download progress
+
+Each torrent file inside `Torrent.files` has the following functions to get useful statistics about the download progress:
+
+1. `get_bytes_downloaded()`: Returns the total number of bytes downloaded so far for a particular file. This also includes the number of bytes which may not be written to disk (ie the piece validation failed, and the piece was discarded).
+
+2. `get_bytes_written()`: Returns the number of bytes written to disk for a particular file.
+
+3. `get_download_progress(precision=2)`: Returns the download progress in percentage for a particular file. The precision parameter specifies the number of decimal places to round off the result to
+
+```python
+file = torrent.files[0]
+
+print(f"Total bytes downloaded: {file.get_bytes_downloaded()} bytes")
+# Output: Total bytes downloaded: 1048576 bytes
+
+print(f"Download progress: {file.get_bytes_written()} / {file.size} bytes")
+# Output: Download progress: 1048576 / 5242880 bytes
+
+print(f"Download progress: {file.get_download_progress(precision=3)}%")
+# Output: Download progress: 20.152%
+```
+
+# aiotorrent CLI
+Starting from versions 0.9.0, aiotorrent ships with a cli which can be directly invoked from the terminal, if PYTHONPATH is set correctly. The usage is fairly simple, and self explanatory:
+
+```bash
+$  aiotorrent
+usage: aiotorrent [-h] [-v] {download,stream,info} ...
+
+aiotorrent CLI for downloading and streaming torrents.
+
+positional arguments:
+  {download,stream,info}
+                        Available commands
+    download            Download torrent files
+    stream              Stream files over HTTP
+    info                Parse and show torrent metadata
+
+options:
+  -h, --help            show this help message and exit
+  -v, --verbose         Show verbose output. Use -vv, -vvv, etc for increased verbosity
+```
+
+# Contribution Guidelines
+This project is open to contributions. Feel free to open issues on bug reports or feature requests.
+
+Please ensure that you open an issue before submitting a pull request. Also refrain from making pull requests directly to the main branch.
 
 <br>
 
