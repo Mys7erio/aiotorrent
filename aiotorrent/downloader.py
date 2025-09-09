@@ -113,6 +113,9 @@ class FilesDownloadManager:
 				task = asyncio.create_task(piece.download(self.peer_queue, _semaphore=sema))
 				task_list.append(task)
 
+				if self.file_pieces.empty():
+					await asyncio.gather(*task_list)
+
 				for task in task_list:
 					if not task.done():
 						break
