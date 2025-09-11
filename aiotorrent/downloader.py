@@ -120,7 +120,6 @@ class FilesDownloadManager:
 					if not task.done():
 						break
 					else:
-						task_list.remove(task)
 						piece = task.result()
 						file._set_bytes_downloaded(file.get_bytes_downloaded() + len(piece.data))
 						# yield piece
