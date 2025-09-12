@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - [FIX] Optimised peer fetching speeds via DHT
 - [FIX] import error from bencoding module caused the program to crash 
+- [FIX] Fixed installation failures on Python3.13 due to stale incompatible dependency [replaced [fast-bencode](https://github.com/synodriver/fast-bencode) with [fastbencode](https://github.com/breezy-team/fastbencode)]
 
 ### Minor Changes
 - [FIX] Fixed type error in `downloader.py` in `FilesDownloadManager.file_downloaded` method

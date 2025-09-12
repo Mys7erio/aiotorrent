@@ -19,9 +19,9 @@ A comprehensive list of features supported by aiotorrent as of now are:
 
 # Requirements
 
-_Tested on `Python 3.11` but it should work on `Python ^3.9` versions just fine._
-
-1. **Dependencies:** The only 2 dependencies which are needed for aiotorrent to work are [`fast-bencode`](https://pypi.org/project/fast-bencode/) and [`bitstring`](https://pypi.org/project/bitstring/).
+1. **Dependencies:** aiotorrent is built to be extremely lite-weight, only 3 dependencies required for the core functionality:
+ - [`fastbencode`](https://pypi.org/project/fastbencode/)
+ - [`bitstring`](https://pypi.org/project/bitstring/)
 
 2. **Streaming dependencies:** built-in support for streaming files over HTTP. To use this feature, you need to install extra streaming dependencies.
 

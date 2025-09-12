@@ -4,7 +4,8 @@ import logging
 from struct import unpack
 from ipaddress import IPv4Address
 
-import bencode
+# import bencode
+from aiotorrent.core.bencode_utils import bencode_util
 # from bencode._bencode import BTFailure
 
 from aiotorrent.core.util import chunk
@@ -64,7 +65,7 @@ class SimpleDHTCrawler:
                 b'info_hash': info_hash
             }
         }
-        return bencode.bencode(query)
+        return bencode_util.bencode(query)
 
 
     def _bytes_to_address(self, blob):
@@ -95,7 +96,7 @@ class SimpleDHTCrawler:
         peers = []
         closer_nodes = []
         try:
-            response = bencode.bdecode(response)
+            response = bencode_util.bdecode(response)
             if not response or 'r' not in response:
                 return None
 

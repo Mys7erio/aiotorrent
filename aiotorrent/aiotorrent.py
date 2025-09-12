@@ -1,13 +1,13 @@
 import io
 import copy
 import asyncio
-import bencode
 import hashlib
 import logging
 import platform
 
 import json
 from aiotorrent.peer import Peer
+from aiotorrent.core.bencode_utils import bencode_util
 from aiotorrent.core.util import chunk, PieceWriter
 from aiotorrent.core.file_utils import FileTree
 from aiotorrent.tracker_factory import TrackerFactory
@@ -37,7 +37,7 @@ class Torrent:
 				bencoded_data = torrent.read()
 
 		# dict_keys(['files', 'name', 'piece length', 'pieces'])
-		data = bencode.bdecode(bencoded_data)
+		data = bencode_util.bdecode(bencoded_data)
 
 		self.trackers = list()
 		self.peers = list()
@@ -63,7 +63,7 @@ class Torrent:
 			size = data['info']['length']
 
 		# re-encode info to -> bencode and then apply sha-1 to it
-		raw_info_hash = bencode.bencode(data['info'])
+		raw_info_hash = bencode_util.bencode(data['info'])
 		info_hash = hashlib.sha1(raw_info_hash).digest()
 
 		# get pieces and convert it from hexadecimal (string) to bytes object
