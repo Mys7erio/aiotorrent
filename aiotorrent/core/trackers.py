@@ -2,7 +2,6 @@ import asyncio
 import logging
 from random import randint
 from typing import Literal
-from bencode import bdecode
 from socket import gaierror
 from struct import pack, unpack
 from ipaddress import IPv4Address
@@ -10,6 +9,9 @@ from http.client import HTTPConnection, HTTPSConnection
 from urllib.parse import urlparse, urlencode, ParseResult
 
 from aiotorrent.core.util import chunk
+from aiotorrent.core.bencode_utils import bencode_util
+
+bdecode = bencode_util.bdecode
 
 
 logger = logging.getLogger(__name__)
