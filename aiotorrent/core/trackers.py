@@ -2,7 +2,6 @@ import asyncio
 import logging
 from random import randint
 from typing import Literal
-from bencode import bdecode
 from socket import gaierror
 from struct import pack, unpack
 from ipaddress import IPv4Address
@@ -10,6 +9,7 @@ from http.client import HTTPConnection, HTTPSConnection
 from urllib.parse import urlparse, urlencode, ParseResult
 
 from aiotorrent.core.util import chunk
+from aiotorrent.core.bencode_utils import bencode_util
 
 
 logger = logging.getLogger(__name__)
@@ -298,7 +298,7 @@ class HTTPTracker(TrackerBaseClass):
 
 			if response.status == 200:
 				self.active = True
-				self.announce_response = bdecode(response.read())
+				self.announce_response = bencode_util.bdecode(response.read())
 				peer_list = self.announce_response['peers']
 				for ip_addr in chunk(peer_list, 6):
 					ip, port = unpack('>IH', ip_addr)
