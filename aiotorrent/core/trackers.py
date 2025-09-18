@@ -300,11 +300,16 @@ class HTTPTracker(TrackerBaseClass):
 				self.active = True
 				self.announce_response = bdecode(response.read())
 				peer_list = self.announce_response['peers']
-				for ip_addr in chunk(peer_list, 6):
-					ip, port = unpack('>IH', ip_addr)
-					ip = IPv4Address(ip).compressed
-					self.peers.append((ip, port))
-
+				if isinstance(peer_list, str):
+					for ip_addr in chunk(peer_list, 6):
+						ip, port = unpack('>IH', ip_addr)
+						ip = IPv4Address(ip).compressed
+						self.peers.append((ip, port))
+				elif isinstance(peer_list, list):
+					for peer in peer_list:
+						self.peers.append((peer['ip'], peer['port']))
+				else:
+					raise RuntimeError(f"Unknown peers data: {peer_list}")
 			else:
 				logger.warning(f"Error fetching peers from {self}: Error Code: {response.status} - {response.reason}: {response.read()}")
 				return []
@@ -315,7 +320,7 @@ class HTTPTracker(TrackerBaseClass):
 			return result
 
 		except Exception as e:
-			logger.error(f"Error occured while connecting to {self}: {e}")
+			logger.exception(f"Error occured while connecting to {self}: {e} [resp:{self.announce_response}]")
 			return []
 
 
