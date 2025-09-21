@@ -201,7 +201,7 @@ class UDPTracker(TrackerBaseClass):
 	class UDPProtocolFactory(asyncio.DatagramProtocol):
 		# Missing typehint
 		def __init__(self, parent_obj):
-			self.transport: None | asyncio.DatagramProtocol = None
+			self.transport: None | asyncio.DatagramTransport = None
 			self.address = (parent_obj.hostname, parent_obj.port)
 			self.parent_obj = parent_obj
 
