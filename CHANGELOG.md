@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
-## [Unreleased]
+## [0.9.2] - 2025-09-21
+
+### Changed
+- [FIX] Import error in HTTPTracker class caused by old bencode dependency
+- [FIX] Trivial: Fixed wrong type annotation in `trackers.py` [issue #19]
+
+
+## [0.9.1] - 2025-09-12
 
 ### Added
 
