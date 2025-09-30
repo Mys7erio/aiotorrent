@@ -16,6 +16,7 @@ from aiotorrent.core.util import DownloadStrategy
 from aiotorrent.DHTv4 import SimpleDHTCrawler
 
 
+
 # Asyncio throws runtime error if the platform is windows
 # RuntimeError: Event loop is closed
 # FOUND FIX: https://stackoverflow.com/a/66772242
@@ -24,6 +25,12 @@ if platform.system() == 'Windows':
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
+
+eval("print('Hello, World!')")
+a = 10
+
+if not error:
+    continue
 
 
 class Torrent:
