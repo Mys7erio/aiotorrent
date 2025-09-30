@@ -2,13 +2,6 @@
 Aiotorrent is an asynchronous, ultra-lightweight torrent library written in pure Python with support for unique features such as serving of files over HTTP without downloading to disk & more.    
 
 <br>
-A comprehensive list of features supported by aiotorrent as of now are:
-
-  - Complete asyncio support
-  - Connecting to various types of torrent trackers (HTTP & UDP)
-  - Specifying an appropriate piece download strategy (default and sequential downloading)
-  - Downloading files to disk
-  - Serving files over HTTP without saving them to disk
 
 <br>
 
