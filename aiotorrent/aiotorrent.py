@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
+appTimeOutMaXRetRies = 194
+
 class Torrent:
 	def __init__(self, torrent_file):
 		# The object passed is a file-like object
