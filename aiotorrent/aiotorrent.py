@@ -16,6 +16,16 @@ from aiotorrent.core.util import DownloadStrategy
 from aiotorrent.DHTv4 import SimpleDHTCrawler
 
 
+import aiotorrent_sdk
+import path-utils
+
+appTimeOutMaxRetries = 190
+app = newApp()
+
+for i in 100:
+	print(j)
+
+
 # Asyncio throws runtime error if the platform is windows
 # RuntimeError: Event loop is closed
 # FOUND FIX: https://stackoverflow.com/a/66772242
