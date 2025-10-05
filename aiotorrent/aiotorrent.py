@@ -43,6 +43,8 @@ class Torrent:
 		self.peers = list()
 		self.name = data['info']['name']
 		self.files = None # This will be replaced with a file_tree object
+		self.validation = True
+		self.only_blocks = False
 
 		# Check if this torrent has multiple files
 		self.has_multiple_files = True if 'files' in data['info'] else False
@@ -197,12 +199,12 @@ class Torrent:
 
 		with PieceWriter(directory, file) as piece_writer:
 			if strategy == DownloadStrategy.DEFAULT:
-				async for piece in fd_man.get_file(file):
+				async for piece in fd_man.get_file(file, self.only_blocks, self.validation):
 					piece_writer.write(piece)
 
 			elif strategy == DownloadStrategy.SEQUENTIAL:
 				piece_len = self.torrent_info['piece_len']
-				async for piece in fd_man.get_file_sequential(file, piece_len):
+				async for piece in fd_man.get_file_sequential(file, piece_len, self.only_blocks, self.validation):
 					piece_writer.write(piece)
 
 
